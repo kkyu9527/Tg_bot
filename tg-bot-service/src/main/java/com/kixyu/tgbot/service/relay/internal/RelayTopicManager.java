@@ -17,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -27,8 +26,6 @@ public class RelayTopicManager {
     private final TelegramApiClient telegramApiClient;
     private final TopicService topicService;
     private final OnboardingSupport onboardingSupport;
-
-    private final ConcurrentHashMap<String, Long> topicValidationCache = new ConcurrentHashMap<>();
 
     /**
      * 获取或创建用户在目标群组中的话题映射。
@@ -43,9 +40,8 @@ public class RelayTopicManager {
         Optional<Topic> existing = topicService.getTopicByUserIdAndChatId(user.id(), groupChatId);
         if (existing.isPresent()) {
             Topic topic = existing.get();
-            if (shouldValidateTopic(groupChatId, topic.getTopicId()) && !isForumTopicAlive(groupChatId, topic)) {
+            if (!isForumTopicAlive(groupChatId, topic)) {
                 log.warn("检测到群话题不存在，准备重建话题并清理遗留数据，userId={}, groupChatId={}, topicId={}", user.id(), groupChatId, topic.getTopicId());
-                topicValidationCache.remove(buildTopicValidationKey(groupChatId, topic.getTopicId()));
                 return recreateTopic(user, groupChatId);
             }
             return topic;
@@ -121,45 +117,12 @@ public class RelayTopicManager {
         try {
             BaseResponse response = telegramApiClient.execute(new EditForumTopic(groupChatIdLong, topic.getTopicId()).name(topicName));
             if (response != null && (response.isOk() || TelegramApiErrorUtil.looksLikeNotModified(response))) {
-                topicValidationCache.put(buildTopicValidationKey(groupChatId, topic.getTopicId()), System.currentTimeMillis());
                 return true;
             }
             return false;
         } catch (RuntimeException e) {
             return false;
         }
-    }
-
-    /**
-     * 判断是否需要对指定话题进行存活校验。
-     *
-     * @param groupChatId 群 chatId（字符串形式）
-     * @param topicId 话题 ID
-     * @return 需要校验则返回 true，否则返回 false
-     */
-    private boolean shouldValidateTopic(String groupChatId, Long topicId) {
-        if (topicId == null) {
-            return false;
-        }
-        String key = buildTopicValidationKey(groupChatId, topicId);
-        Long last = topicValidationCache.get(key);
-        if (last == null) {
-            topicValidationCache.put(key, System.currentTimeMillis());
-            return false;
-        }
-        long now = System.currentTimeMillis();
-        return now - last >= 10_000;
-    }
-
-    /**
-     * 构建话题校验缓存键。
-     *
-     * @param groupChatId 群 chatId（字符串形式）
-     * @param topicId 话题 ID
-     * @return 缓存键
-     */
-    private String buildTopicValidationKey(String groupChatId, Long topicId) {
-        return groupChatId + ":" + topicId;
     }
 
     /**

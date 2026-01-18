@@ -3,8 +3,10 @@ package com.kixyu.tgbot.service.relay.internal;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.TopicService;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
+import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.support.TelegramApiErrorUtil;
 import com.pengrad.telegrambot.model.ForumTopic;
+import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.CreateForumTopic;
 import com.pengrad.telegrambot.request.EditForumTopic;
@@ -24,6 +26,7 @@ public class RelayTopicManager {
 
     private final TelegramApiClient telegramApiClient;
     private final TopicService topicService;
+    private final OnboardingSupport onboardingSupport;
 
     private final ConcurrentHashMap<String, Long> topicValidationCache = new ConcurrentHashMap<>();
 
@@ -69,7 +72,7 @@ public class RelayTopicManager {
         if (threadId == null) {
             return null;
         }
-        return topicService.createTopic(
+        Topic topic = topicService.createTopic(
                 user.id(),
                 user.username(),
                 user.firstName(),
@@ -77,6 +80,18 @@ public class RelayTopicManager {
                 threadId,
                 groupChatId
         );
+
+        try {
+            String caption = onboardingSupport.buildNewUserCaption(user);
+            Message sentMessage = onboardingSupport.sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
+            if (sentMessage != null && sentMessage.messageId() != null) {
+                onboardingSupport.pinMessage(groupChatId, sentMessage.messageId());
+            }
+        } catch (RuntimeException e) {
+            log.warn("发送新用户提示消息失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId, e);
+        }
+
+        return topic;
     }
 
     /**

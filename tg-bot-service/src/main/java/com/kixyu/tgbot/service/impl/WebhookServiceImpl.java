@@ -4,6 +4,7 @@ import com.kixyu.tgbot.service.OnboardingService;
 import com.kixyu.tgbot.service.WebhookService;
 import com.kixyu.tgbot.service.CallbackQueryService;
 import com.kixyu.tgbot.service.MessageRelayService;
+import com.kixyu.tgbot.service.MessageService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.support.TelegramCommandExtractor;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
@@ -40,6 +41,7 @@ public class WebhookServiceImpl implements WebhookService {
     private final TelegramApiClient telegramApiClient;
     private final MessageRepository messageRepository;
     private final TopicService topicService;
+    private final MessageService messageService;
 
     /**
      * 处理来自 Telegram 的 Webhook 更新。
@@ -227,7 +229,7 @@ public class WebhookServiceImpl implements WebhookService {
         if (topic != null && topic.getTopicId() != null) {
             Long topicId = topic.getTopicId();
             try {
-                messageRepository.deleteByTopicId(topicId);
+                messageService.deleteMessagesByTopicId(topicId);
                 topicService.deleteTopicByTopicIdAndChatId(topicId, groupChatId);
                 log.info("已删除本地话题及消息数据，updateId={}, topicId={}, groupChatId={}", updateId, topicId, groupChatId);
             } catch (RuntimeException e) {

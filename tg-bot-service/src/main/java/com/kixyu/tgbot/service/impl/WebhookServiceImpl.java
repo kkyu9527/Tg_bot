@@ -10,6 +10,7 @@ import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.domain.repository.MessageRepository;
 import com.kixyu.tgbot.service.TopicService;
+import com.kixyu.tgbot.service.UserService;
 import com.kixyu.tgbot.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class WebhookServiceImpl implements WebhookService {
     private final MessageRepository messageRepository;
     private final TopicService topicService;
     private final MessageService messageService;
+    private final UserService userService;
 
     /**
      * 处理来自 Telegram 的 Webhook 更新。
@@ -123,6 +125,10 @@ public class WebhookServiceImpl implements WebhookService {
                         handleDeleteCommand(updateId, message, chat);
                         return;
                     }
+                    case "unblock" -> {
+                        handleUnblockCommand(updateId, message, chat);
+                        return;
+                    }
                 }
 
             }
@@ -140,6 +146,97 @@ public class WebhookServiceImpl implements WebhookService {
             }
         } catch (RuntimeException e) {
             log.error("Webhook 处理异常，updateId={}", updateId, e);
+        }
+    }
+
+    private void handleUnblockCommand(Integer updateId, Message message, Chat chat) {
+        if (isInvalidGroupOwnerCommand(message, chat)) {
+            return;
+        }
+        if (message.text() == null || message.text().isBlank()) {
+            return;
+        }
+        String text = message.text().trim();
+        String[] parts = text.split("\\s+");
+        if (parts.length < 2) {
+            Long chatId = chat.id();
+            java.util.List<com.kixyu.tgbot.domain.entity.User> blockedUsers = userService.listBlocked();
+            if (blockedUsers == null || blockedUsers.isEmpty()) {
+                try {
+                    sendText(chatId, "当前没有已拉黑的用户。");
+                } catch (RuntimeException e) {
+                    log.warn("发送“当前没有已拉黑的用户”提示失败，updateId={}, chatId={}", updateId, chatId, e);
+                }
+                return;
+            }
+            com.pengrad.telegrambot.model.request.InlineKeyboardMarkup keyboard = new com.pengrad.telegrambot.model.request.InlineKeyboardMarkup();
+            for (com.kixyu.tgbot.domain.entity.User user : blockedUsers) {
+                Long targetUserId = user.getUserId();
+                if (targetUserId == null) {
+                    continue;
+                }
+                StringBuilder label = new StringBuilder();
+                if (user.getUsername() != null && !user.getUsername().isBlank()) {
+                    label.append("@").append(user.getUsername());
+                } else {
+                    String displayName = Topic.generateTopicName(
+                            user.getFirstName(),
+                            user.getLastName(),
+                            null,
+                            targetUserId
+                    );
+                    label.append(displayName);
+                }
+                label.append(" (").append(targetUserId).append(")");
+                String callbackData = "bl:unblock:" + targetUserId;
+                com.pengrad.telegrambot.model.request.InlineKeyboardButton button =
+                        new com.pengrad.telegrambot.model.request.InlineKeyboardButton(label.toString()).callbackData(callbackData);
+                keyboard.addRow(button);
+            }
+            try {
+                telegramApiClient.execute(
+                        new SendMessage(chatId.longValue(), "选择要取消拉黑的用户：").replyMarkup(keyboard)
+                );
+            } catch (RuntimeException e) {
+                log.warn("发送已拉黑用户列表失败，updateId={}, chatId={}", updateId, chatId, e);
+            }
+            return;
+        }
+        Long targetUserId;
+        try {
+            targetUserId = Long.parseLong(parts[1]);
+        } catch (NumberFormatException e) {
+            Long chatId = chat.id();
+            try {
+                sendText(chatId, "无效的 userId：" + parts[1]);
+            } catch (RuntimeException ex) {
+                log.warn("发送 /unblock 参数错误提示失败，updateId={}, chatId={}", updateId, chatId, ex);
+            }
+            return;
+        }
+        try {
+            com.kixyu.tgbot.domain.entity.User user = userService.unblock(targetUserId);
+            Long chatId = chat.id();
+            if (chatId != null) {
+                String reply = user != null && !Boolean.TRUE.equals(user.getBlocked())
+                        ? "已取消拉黑用户：" + targetUserId
+                        : "该用户当前未被拉黑：" + targetUserId;
+                sendText(chatId, reply);
+            }
+            try {
+                String notify = "提示：主人已通过命令取消对你的拉黑，你的消息将再次被转发。";
+                telegramApiClient.execute(new SendMessage(targetUserId.longValue(), notify));
+            } catch (RuntimeException e) {
+                log.warn("通过命令取消拉黑后通知用户失败，updateId={}, userId={}", updateId, targetUserId, e);
+            }
+        } catch (RuntimeException e) {
+            Long chatId = chat.id();
+            log.warn("处理 /unblock 失败，updateId={}, userId={}", updateId, targetUserId, e);
+            try {
+                sendText(chatId, "取消拉黑失败：" + e.getMessage());
+            } catch (RuntimeException ex) {
+                log.warn("发送 /unblock 失败提示消息失败，updateId={}, chatId={}", updateId, chatId, ex);
+            }
         }
     }
 
@@ -202,22 +299,13 @@ public class WebhookServiceImpl implements WebhookService {
     }
 
     private void handleCloseTopicCommand(Integer updateId, Message message, Chat chat) {
-        if (message == null || message.from() == null || chat == null || chat.id() == null) {
+        if (isInvalidGroupOwnerCommand(message, chat)) {
             return;
         }
 
         Long groupId = telegramBotProperties.getGroupId();
-        if (groupId == null || groupId == 0L || !groupId.equals(chat.id())) {
-            return;
-        }
-
         Long threadId = message.messageThreadId();
         if (threadId == null) {
-            return;
-        }
-
-        Long ownerId = telegramBotProperties.getOwnerId();
-        if (ownerId != null && !ownerId.equals(message.from().id())) {
             return;
         }
 
@@ -243,6 +331,18 @@ public class WebhookServiceImpl implements WebhookService {
             }
         }
 
+    }
+
+    private boolean isInvalidGroupOwnerCommand(Message message, Chat chat) {
+        if (message == null || message.from() == null || chat == null || chat.id() == null) {
+            return true;
+        }
+        Long groupId = telegramBotProperties.getGroupId();
+        if (groupId == null || groupId == 0L || !groupId.equals(chat.id())) {
+            return true;
+        }
+        Long ownerId = telegramBotProperties.getOwnerId();
+        return ownerId != null && !ownerId.equals(message.from().id());
     }
 
     private void handleDeleteCommand(Integer updateId, Message message, Chat chat) {
@@ -287,15 +387,13 @@ public class WebhookServiceImpl implements WebhookService {
     }
 
     private void deletePairedMessagesFromPrivate(Integer updateId, Long userId, Long privateChatId, Long repliedMessageId) {
-        com.kixyu.tgbot.domain.entity.Message mapping = messageService.getMessageByOriginalMessageId(repliedMessageId)
-                .orElseGet(() -> messageService.getMessageByForwardedMessageId(repliedMessageId).orElse(null));
+        com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
         if (mapping == null) {
             return;
         }
 
-        Long topicId = mapping.getTopicId();
-        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
-        if (topic == null || topic.getUserId() == null || topic.getTopicId() == null) {
+        Topic topic = findValidTopic(mapping);
+        if (topic == null) {
             return;
         }
         Long mappedUserId = topic.getUserId();
@@ -307,17 +405,12 @@ public class WebhookServiceImpl implements WebhookService {
             return;
         }
 
-        Long userMessageId;
-        Long groupMessageId;
-        if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
-            userMessageId = mapping.getOriginalMessageId();
-            groupMessageId = mapping.getForwardedMessageId();
-        } else if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE) {
-            userMessageId = mapping.getForwardedMessageId();
-            groupMessageId = mapping.getOriginalMessageId();
-        } else {
+        PairedMessageIds ids = resolvePairedMessageIds(mapping);
+        if (ids == null) {
             return;
         }
+        Long userMessageId = ids.userMessageId();
+        Long groupMessageId = ids.groupMessageId();
 
         if (userMessageId != null && userMessageId <= Integer.MAX_VALUE) {
             try {
@@ -336,15 +429,13 @@ public class WebhookServiceImpl implements WebhookService {
     }
 
     private void deletePairedMessagesFromGroup(Integer updateId, Long groupId, Long repliedMessageId) {
-        com.kixyu.tgbot.domain.entity.Message mapping = messageService.getMessageByForwardedMessageId(repliedMessageId)
-                .orElseGet(() -> messageService.getMessageByOriginalMessageId(repliedMessageId).orElse(null));
+        com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
         if (mapping == null) {
             return;
         }
 
-        Long topicId = mapping.getTopicId();
-        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
-        if (topic == null || topic.getUserId() == null || topic.getTopicId() == null) {
+        Topic topic = findValidTopic(mapping);
+        if (topic == null) {
             return;
         }
         Long mappedGroupId = parseChatIdLong(topic.getChatId());
@@ -354,17 +445,12 @@ public class WebhookServiceImpl implements WebhookService {
 
         Long privateChatId = topic.getUserId();
 
-        Long userMessageId;
-        Long groupMessageId;
-        if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
-            userMessageId = mapping.getOriginalMessageId();
-            groupMessageId = mapping.getForwardedMessageId();
-        } else if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE) {
-            userMessageId = mapping.getForwardedMessageId();
-            groupMessageId = mapping.getOriginalMessageId();
-        } else {
+        PairedMessageIds ids = resolvePairedMessageIds(mapping);
+        if (ids == null) {
             return;
         }
+        Long userMessageId = ids.userMessageId();
+        Long groupMessageId = ids.groupMessageId();
 
         if (groupMessageId != null && groupMessageId <= Integer.MAX_VALUE) {
             try {
@@ -380,6 +466,44 @@ public class WebhookServiceImpl implements WebhookService {
                 log.warn("删除私聊消息失败，updateId={}, userId={}, messageId={}", updateId, privateChatId, userMessageId, e);
             }
         }
+    }
+
+    private com.kixyu.tgbot.domain.entity.Message findMessageMapping(Long messageId) {
+        return messageService.getMessageByOriginalMessageId(messageId)
+                .orElseGet(() -> messageService.getMessageByForwardedMessageId(messageId).orElse(null));
+    }
+
+    private Topic findValidTopic(com.kixyu.tgbot.domain.entity.Message mapping) {
+        if (mapping == null || mapping.getTopicId() == null) {
+            return null;
+        }
+        Long topicId = mapping.getTopicId();
+        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
+        if (topic == null || topic.getUserId() == null || topic.getTopicId() == null) {
+            return null;
+        }
+        return topic;
+    }
+
+    private PairedMessageIds resolvePairedMessageIds(com.kixyu.tgbot.domain.entity.Message mapping) {
+        if (mapping == null) {
+            return null;
+        }
+        Long userMessageId;
+        Long groupMessageId;
+        if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
+            userMessageId = mapping.getOriginalMessageId();
+            groupMessageId = mapping.getForwardedMessageId();
+        } else if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE) {
+            userMessageId = mapping.getForwardedMessageId();
+            groupMessageId = mapping.getOriginalMessageId();
+        } else {
+            return null;
+        }
+        return new PairedMessageIds(userMessageId, groupMessageId);
+    }
+
+    private record PairedMessageIds(Long userMessageId, Long groupMessageId) {
     }
 
     private Long parseChatIdLong(String chatId) {
@@ -511,8 +635,10 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
-    @SuppressWarnings("deprecation")
-    private void sendText(Object chatId, String text) {
-        telegramApiClient.execute(new SendMessage(chatId, text));
+    private void sendText(Long chatId, String text) {
+        if (chatId == null) {
+            return;
+        }
+        telegramApiClient.execute(new SendMessage(chatId.longValue(), text));
     }
 }

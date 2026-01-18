@@ -2,6 +2,7 @@ package com.kixyu.tgbot.support;
 
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.TopicService;
+import com.kixyu.tgbot.service.UserService;
 import com.kixyu.tgbot.telegram.support.TelegramApiErrorUtil;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
@@ -11,6 +12,8 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.UserProfilePhotos;
+import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
+import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.CreateForumTopic;
 import com.pengrad.telegrambot.request.EditForumTopic;
 import com.pengrad.telegrambot.request.GetFile;
@@ -43,6 +46,7 @@ public class OnboardingSupport {
 
     private final TelegramApiClient telegramApiClient;
     private final TopicService topicService;
+    private final UserService userService;
     private final TelegramBotProperties telegramBotProperties;
 
     /**
@@ -75,19 +79,8 @@ public class OnboardingSupport {
         topicService.handleTopicDeletion(userId, chatId);
     }
 
-    /**
-     * 创建一个新的话题并保存映射。
-     *
-     * @param userId    用户 ID
-     * @param username  用户名
-     * @param firstName 名
-     * @param lastName  姓
-     * @param topicId   Telegram 话题 ID
-     * @param chatId    聊天 ID
-     * @return 持久化后的话题实体
-     */
-    public Topic createTopic(Long userId, String username, String firstName, String lastName, Long topicId, String chatId) {
-        return topicService.createTopic(userId, username, firstName, lastName, topicId, chatId);
+    public void createTopic(Long userId, String username, String firstName, String lastName, Long topicId, String chatId) {
+        topicService.createTopic(userId, username, firstName, lastName, topicId, chatId);
     }
 
     /**
@@ -103,9 +96,19 @@ public class OnboardingSupport {
                         "你的用户ID是：" + user.id() + "\n\n" +
                         "你现在可以直接给我发消息，我会帮你转发给主人。";
         try {
+            userService.saveOrUpdateUserInfo(
+                    user.id(),
+                    user.username(),
+                    user.firstName(),
+                    user.lastName()
+            );
+        } catch (RuntimeException e) {
+            log.warn("保存或更新用户信息失败，userId={}", user.id(), e);
+        }
+        try {
             telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
         } catch (RuntimeException e) {
-            log.warn("发送欢迎消息失败，userId={}, privateChatId={}", user == null ? null : user.id(), privateChatId, e);
+            log.warn("发送欢迎消息失败，userId={}, privateChatId={}", user.id(), privateChatId, e);
         }
     }
 
@@ -218,6 +221,17 @@ public class OnboardingSupport {
         }
     }
 
+    private InlineKeyboardMarkup buildBlockInlineKeyboard(Long userId) {
+        boolean blocked = userService.isBlocked(userId);
+        String text = blocked ? "取消拉黑" : "拉黑此用户";
+        String action = blocked ? "unblock" : "block";
+        String data = "bl:" + action + ":" + userId;
+        InlineKeyboardButton button = new InlineKeyboardButton(text).callbackData(data);
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        markup.addRow(button);
+        return markup;
+    }
+
     /**
      * 向新用户对应的话题发送提示消息，优先发送带头像的图片消息。
      *
@@ -234,6 +248,7 @@ public class OnboardingSupport {
         }
 
         byte[] avatarBytes = downloadUserAvatarBytes(user.id());
+        InlineKeyboardMarkup markup = buildBlockInlineKeyboard(user.id());
         if (avatarBytes != null && avatarBytes.length > 0) {
             try {
                 SendResponse response = telegramApiClient.execute(
@@ -241,6 +256,7 @@ public class OnboardingSupport {
                                 .fileName("avatar.jpg")
                                 .caption(caption)
                                 .messageThreadId(messageThreadId)
+                                .replyMarkup(markup)
                 );
                 return response == null ? null : response.message();
             } catch (RuntimeException e) {
@@ -251,7 +267,9 @@ public class OnboardingSupport {
 
         try {
             SendResponse response = telegramApiClient.execute(
-                    new SendMessage(groupChatIdLong.longValue(), caption).messageThreadId(messageThreadId)
+                    new SendMessage(groupChatIdLong.longValue(), caption)
+                            .messageThreadId(messageThreadId)
+                            .replyMarkup(markup)
             );
             return response == null ? null : response.message();
         } catch (RuntimeException e) {

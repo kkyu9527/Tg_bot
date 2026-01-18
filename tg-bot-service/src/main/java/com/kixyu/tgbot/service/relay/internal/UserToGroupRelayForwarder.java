@@ -4,6 +4,7 @@ import com.kixyu.tgbot.domain.entity.Message.ContentType;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.BotService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
+import com.kixyu.tgbot.service.UserService;
 import com.kixyu.tgbot.service.relay.internal.mapper.RelayReplyMapper;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.telegram.support.TelegramApiErrorUtil;
@@ -37,6 +38,7 @@ public class UserToGroupRelayForwarder {
     private final TelegramMessageMediaMapper telegramMessageMediaMapper;
     private final BotService botService;
     private final RelayReplyMapper relayReplyMapper;
+    private final UserService userService;
 
     private final ScheduledExecutorService mediaGroupScheduler = Executors.newSingleThreadScheduledExecutor();
     private final ConcurrentHashMap<String, MediaGroupRelaySupport.MessageBuffer<MediaGroupContext>> mediaGroupBuffers = new ConcurrentHashMap<>();
@@ -71,6 +73,10 @@ public class UserToGroupRelayForwarder {
         }
 
         User user = privateMessage.from();
+        if (userService.isBlocked(user.id())) {
+            log.info("检测到用户已被拉黑，跳过转发，userId={}", user.id());
+            return;
+        }
         String groupChatId = String.valueOf(groupId);
 
         log.info("转发私聊消息到群话题开始，userId={}, privateChatId={}, messageId={}",
@@ -198,6 +204,10 @@ public class UserToGroupRelayForwarder {
         }
 
         User user = first.from();
+        if (userService.isBlocked(user.id())) {
+            log.info("检测到用户已被拉黑，跳过媒体组转发，userId={}, mediaGroupId={}", user.id(), context.mediaGroupId());
+            return;
+        }
         String groupChatId = context.groupChatId();
 
         Topic topic = relayTopicManager.ensureTopic(user, groupChatId);

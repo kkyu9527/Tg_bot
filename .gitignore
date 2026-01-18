@@ -14,3 +14,4 @@ target/
 *.jar
 
 tg-bot-web/src/main/resources/application-dev.yml
+docker-cpmpose.txt

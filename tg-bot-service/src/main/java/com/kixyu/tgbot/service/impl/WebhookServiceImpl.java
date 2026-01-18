@@ -4,13 +4,13 @@ import com.kixyu.tgbot.service.OnboardingService;
 import com.kixyu.tgbot.service.WebhookService;
 import com.kixyu.tgbot.service.CallbackQueryService;
 import com.kixyu.tgbot.service.MessageRelayService;
-import com.kixyu.tgbot.service.MessageService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.support.TelegramCommandExtractor;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.domain.repository.MessageRepository;
 import com.kixyu.tgbot.service.TopicService;
+import com.kixyu.tgbot.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +21,7 @@ import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.EditMessageCaption;
 import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.request.DeleteMessage;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -118,6 +119,10 @@ public class WebhookServiceImpl implements WebhookService {
                         handleCloseTopicCommand(updateId, message, chat);
                         return;
                     }
+                    case "delete" -> {
+                        handleDeleteCommand(updateId, message, chat);
+                        return;
+                    }
                 }
 
             }
@@ -162,6 +167,7 @@ public class WebhookServiceImpl implements WebhookService {
         if (Boolean.TRUE.equals(user.isPremium())) {
             text.append("\n账号类型：Telegram Premium");
         }
+        text.append("\n\n小技巧：如果想撤回一条已经发送的消息，可以在私聊或话题中回复那条消息，然后发送 /delete，机器人会尽量同时删除两端的对应消息（受 Telegram 限制，部分旧消息可能无法撤回）。");
 
         try {
             sendText(privateChatId, text.toString());
@@ -237,6 +243,154 @@ public class WebhookServiceImpl implements WebhookService {
             }
         }
 
+    }
+
+    private void handleDeleteCommand(Integer updateId, Message message, Chat chat) {
+        if (message == null || message.from() == null || chat == null || chat.id() == null) {
+            return;
+        }
+        if (message.replyToMessage() == null || message.replyToMessage().messageId() == null) {
+            Long chatId = chat.id();
+            try {
+                sendText(chatId, "请先回复要撤回的那条消息，然后再发送 /delete");
+            } catch (RuntimeException e) {
+                log.warn("提示 /delete 使用方式失败，updateId={}, chatId={}", updateId, chatId, e);
+            }
+            try {
+                telegramApiClient.execute(new DeleteMessage(chatId, message.messageId()));
+            } catch (RuntimeException e) {
+                log.warn("删除无效 /delete 命令消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, message.messageId(), e);
+            }
+            return;
+        }
+
+        Long repliedMessageId = message.replyToMessage().messageId().longValue();
+        Long chatId = chat.id();
+        Long groupId = telegramBotProperties.getGroupId();
+
+        if (Chat.Type.Private.equals(chat.type())) {
+            Long userId = message.from().id();
+            deletePairedMessagesFromPrivate(updateId, userId, chatId, repliedMessageId);
+        } else if (groupId != null && groupId.equals(chatId)) {
+            Long ownerId = telegramBotProperties.getOwnerId();
+            if (ownerId != null && !ownerId.equals(message.from().id())) {
+                return;
+            }
+            deletePairedMessagesFromGroup(updateId, chatId, repliedMessageId);
+        }
+
+        try {
+            telegramApiClient.execute(new DeleteMessage(chatId, message.messageId()));
+        } catch (RuntimeException e) {
+            log.warn("删除 /delete 命令消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, message.messageId(), e);
+        }
+    }
+
+    private void deletePairedMessagesFromPrivate(Integer updateId, Long userId, Long privateChatId, Long repliedMessageId) {
+        com.kixyu.tgbot.domain.entity.Message mapping = messageService.getMessageByOriginalMessageId(repliedMessageId)
+                .orElseGet(() -> messageService.getMessageByForwardedMessageId(repliedMessageId).orElse(null));
+        if (mapping == null) {
+            return;
+        }
+
+        Long topicId = mapping.getTopicId();
+        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
+        if (topic == null || topic.getUserId() == null || topic.getTopicId() == null) {
+            return;
+        }
+        Long mappedUserId = topic.getUserId();
+        if (!mappedUserId.equals(userId)) {
+            return;
+        }
+        Long groupId = parseChatIdLong(topic.getChatId());
+        if (groupId == null) {
+            return;
+        }
+
+        Long userMessageId;
+        Long groupMessageId;
+        if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
+            userMessageId = mapping.getOriginalMessageId();
+            groupMessageId = mapping.getForwardedMessageId();
+        } else if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE) {
+            userMessageId = mapping.getForwardedMessageId();
+            groupMessageId = mapping.getOriginalMessageId();
+        } else {
+            return;
+        }
+
+        if (userMessageId != null && userMessageId <= Integer.MAX_VALUE) {
+            try {
+                telegramApiClient.execute(new DeleteMessage(privateChatId, userMessageId.intValue()));
+            } catch (RuntimeException e) {
+                log.warn("删除私聊消息失败，updateId={}, userId={}, messageId={}", updateId, userId, userMessageId, e);
+            }
+        }
+        if (groupMessageId != null && groupMessageId <= Integer.MAX_VALUE) {
+            try {
+                telegramApiClient.execute(new DeleteMessage(groupId, groupMessageId.intValue()));
+            } catch (RuntimeException e) {
+                log.warn("删除群话题消息失败，updateId={}, groupId={}, messageId={}", updateId, groupId, groupMessageId, e);
+            }
+        }
+    }
+
+    private void deletePairedMessagesFromGroup(Integer updateId, Long groupId, Long repliedMessageId) {
+        com.kixyu.tgbot.domain.entity.Message mapping = messageService.getMessageByForwardedMessageId(repliedMessageId)
+                .orElseGet(() -> messageService.getMessageByOriginalMessageId(repliedMessageId).orElse(null));
+        if (mapping == null) {
+            return;
+        }
+
+        Long topicId = mapping.getTopicId();
+        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
+        if (topic == null || topic.getUserId() == null || topic.getTopicId() == null) {
+            return;
+        }
+        Long mappedGroupId = parseChatIdLong(topic.getChatId());
+        if (mappedGroupId == null || !mappedGroupId.equals(groupId)) {
+            return;
+        }
+
+        Long privateChatId = topic.getUserId();
+
+        Long userMessageId;
+        Long groupMessageId;
+        if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
+            userMessageId = mapping.getOriginalMessageId();
+            groupMessageId = mapping.getForwardedMessageId();
+        } else if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE) {
+            userMessageId = mapping.getForwardedMessageId();
+            groupMessageId = mapping.getOriginalMessageId();
+        } else {
+            return;
+        }
+
+        if (groupMessageId != null && groupMessageId <= Integer.MAX_VALUE) {
+            try {
+                telegramApiClient.execute(new DeleteMessage(groupId, groupMessageId.intValue()));
+            } catch (RuntimeException e) {
+                log.warn("删除群话题消息失败，updateId={}, groupId={}, messageId={}", updateId, groupId, groupMessageId, e);
+            }
+        }
+        if (userMessageId != null && userMessageId <= Integer.MAX_VALUE) {
+            try {
+                telegramApiClient.execute(new DeleteMessage(privateChatId, userMessageId.intValue()));
+            } catch (RuntimeException e) {
+                log.warn("删除私聊消息失败，updateId={}, userId={}, messageId={}", updateId, privateChatId, userMessageId, e);
+            }
+        }
+    }
+
+    private Long parseChatIdLong(String chatId) {
+        if (chatId == null || chatId.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(chatId);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private void callDeleteForumTopic(Long groupId, Long threadId) {

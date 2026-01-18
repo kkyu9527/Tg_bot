@@ -40,12 +40,13 @@ public class TelegramBotStartupConfig {
         try {
             BotCommand start = new BotCommand("start", "开始与机器人对话");
             BotCommand info = new BotCommand("info", "查看当前账号信息");
+            BotCommand delete = new BotCommand("delete", "回复一条消息并发送以撤回该消息");
             BotCommand chatId = new BotCommand("chatid", "获取当前群组 ID");
             BotCommand closeTopic = new BotCommand("close_topic", "删除当前话题并清理数据");
 
-            BotCommand[] defaultCommands = new BotCommand[]{start, info, chatId, closeTopic};
-            BotCommand[] privateCommands = new BotCommand[]{start, info};
-            BotCommand[] groupCommands = new BotCommand[]{chatId, closeTopic};
+            BotCommand[] defaultCommands = new BotCommand[]{start, info, delete, chatId, closeTopic};
+            BotCommand[] privateCommands = new BotCommand[]{start, info, delete};
+            BotCommand[] groupCommands = new BotCommand[]{delete, chatId, closeTopic};
 
             telegramApiClient.execute(new SetMyCommands(defaultCommands));
             telegramApiClient.execute(new SetMyCommands(privateCommands).scope(new BotCommandScopeAllPrivateChats()));
@@ -91,4 +92,3 @@ public class TelegramBotStartupConfig {
         return value;
     }
 }
-

@@ -11,6 +11,8 @@ import com.pengrad.telegrambot.model.request.InputMedia;
 import com.pengrad.telegrambot.model.request.ReplyParameters;
 import com.pengrad.telegrambot.request.CopyMessage;
 import com.pengrad.telegrambot.request.SendMediaGroup;
+import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.response.BaseResponse;
 import com.pengrad.telegrambot.response.MessageIdResponse;
 import com.pengrad.telegrambot.response.MessagesResponse;
 import lombok.RequiredArgsConstructor;
@@ -110,7 +112,10 @@ public class GroupToUserRelayForwarder {
 
         MessageIdResponse copied = telegramApiClient.execute(copyMessage);
         if (copied == null || !copied.isOk() || copied.messageId() == null) {
-            log.warn("回流群话题消息失败：返回为空，threadId={}, userId={}, error={}", threadId, userId, copied == null ? null : copied.description());
+            log.warn("回流群话题消息失败，threadId={}, userId={}, error={}", threadId, userId, copied == null ? null : copied.description());
+            if (looksLikeBlocked(copied)) {
+                notifyOwnerUserBlocked(groupId, threadId, userId);
+            }
             return;
         }
 
@@ -196,8 +201,15 @@ public class GroupToUserRelayForwarder {
         MessagesResponse response = telegramApiClient.execute(new SendMediaGroup(context.userId(), medias.toArray(new InputMedia[0])));
         Message[] sent = response == null ? null : response.messages();
         if (response == null || !response.isOk() || sent == null || sent.length != medias.size()) {
-            log.warn("回流媒体组失败：返回数量异常，threadId={}, userId={}, mediaGroupId={}, expected={}, actual={}, error={}",
+            log.warn("回流媒体组失败，threadId={}, userId={}, mediaGroupId={}, expected={}, actual={}, error={}",
                     context.threadId(), context.userId(), context.mediaGroupId(), medias.size(), sent == null ? null : sent.length, response == null ? null : response.description());
+            if (looksLikeBlocked(response)) {
+                Long groupId = telegramBotProperties.getGroupId();
+                Long threadId = context.threadId();
+                if (groupId != null && threadId != null) {
+                    notifyOwnerUserBlocked(groupId, threadId, context.userId());
+                }
+            }
             for (Message message : bufferedMessages) {
                 relayInternal(message, false);
             }
@@ -225,6 +237,33 @@ public class GroupToUserRelayForwarder {
 
         log.info("回流群话题媒体组相册成功，threadId={}, userId={}, mediaGroupId={}, count={}",
                 context.threadId(), context.userId(), context.mediaGroupId(), sent.length);
+    }
+
+    private boolean looksLikeBlocked(BaseResponse response) {
+        if (response == null || response.description() == null) {
+            return false;
+        }
+        String msg = response.description().toLowerCase();
+        return msg.contains("blocked by the user")
+                || msg.contains("user is deactivated")
+                || msg.contains("chat not found");
+    }
+
+    private void notifyOwnerUserBlocked(Long groupId, Long threadId, Long userId) {
+        if (groupId == null || threadId == null || userId == null) {
+            return;
+        }
+        if (threadId > Integer.MAX_VALUE) {
+            return;
+        }
+        try {
+            String text = "提示：无法给该用户发送消息，可能已拉黑机器人或账号不可用（userId=" + userId + "）。";
+            SendMessage request = new SendMessage(groupId.longValue(), text)
+                    .messageThreadId(threadId.intValue());
+            telegramApiClient.execute(request);
+        } catch (RuntimeException e) {
+            log.warn("发送“用户可能拉黑机器人”提示失败，groupId={}, threadId={}, userId={}", groupId, threadId, userId, e);
+        }
     }
 
 }

@@ -18,6 +18,12 @@ public class WebhookController {
 
     private final WebhookService webhookService;
 
+    /**
+     * 处理来自 Telegram 的 Webhook 更新。
+     *
+     * @param body  Webhook 请求体，包含 Telegram 更新信息
+     * @return      处理结果，固定为 "OK"
+     */
     @PostMapping
     public String handleWebhook(@RequestBody String body) {
         Update update = null;

@@ -8,11 +8,14 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserBlockRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Long> {
 
+    // 根据 Telegram 用户ID查找用户
     Optional<User> findByUserId(Long userId);
 
+    // 检查用户是否被拉黑
     boolean existsByUserIdAndBlockedTrue(Long userId);
 
+    // 查找所有被拉黑的用户
     List<User> findByBlockedTrue();
 }

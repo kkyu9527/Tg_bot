@@ -203,13 +203,13 @@ public class TopicServiceImpl implements TopicService {
     /**
      * 重新创建话题：删除旧话题及其消息后，创建新话题。
      *
-     * @param userId    用户 ID
-     * @param chatId    聊天 ID
-     * @param username  用户名
-     * @param firstName 名
-     * @param lastName  姓
-     * @param newTopicId 新的话题 ID
-     * @return 新创建的话题实体
+     * @param userId        用户 ID
+     * @param chatId        聊天 ID
+     * @param username      用户名
+     * @param firstName     名
+     * @param lastName      姓
+     * @param newTopicId    新的话题 ID
+     * @return              新创建的话题实体
      */
     @Override
     public Topic recreateTopic(Long userId, String chatId, String username, String firstName, String lastName, Long newTopicId) {

@@ -139,6 +139,14 @@ public class WebhookServiceImpl implements WebhookService {
                 return;
             }
 
+            /**
+             * 检查消息是否来自配置的群聊。
+             * 如果是，则将群聊消息回流到用户。
+             *
+             * @param updateId 更新 ID
+             * @param message  消息实体
+             * @param chat     聊天实体
+             */
             Long groupId = telegramBotProperties.getGroupId();
             if (groupId != null && chat != null && groupId.equals(chat.id())) {
                 log.info("群话题消息回流到用户，updateId={}, groupChatId={}, messageId={}", updateId, groupId, message.messageId());
@@ -149,6 +157,13 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
+    /**
+     * 处理 /unblock 命令，列出所有已拉黑的用户。
+     *
+     * @param updateId 更新 ID
+     * @param message  消息实体
+     * @param chat     聊天实体
+     */
     private void handleUnblockCommand(Integer updateId, Message message, Chat chat) {
         if (isInvalidGroupOwnerCommand(message, chat)) {
             return;
@@ -240,6 +255,13 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
+    /**
+     * 处理 /info 命令，显示用户账号信息。
+     *
+     * @param updateId 更新 ID
+     * @param message  消息实体
+     * @param chat     聊天实体
+     */
     private void handleInfoCommand(Integer updateId, Message message, Chat chat) {
         if (message == null || message.from() == null) {
             return;
@@ -298,6 +320,13 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
+    /**
+     * 处理 /close 命令，关闭当前话题。
+     *
+     * @param updateId 更新 ID
+     * @param message  消息实体
+     * @param chat     聊天实体
+     */
     private void handleCloseTopicCommand(Integer updateId, Message message, Chat chat) {
         if (isInvalidGroupOwnerCommand(message, chat)) {
             return;
@@ -333,6 +362,13 @@ public class WebhookServiceImpl implements WebhookService {
 
     }
 
+    /**
+     * 检查是否为无效的群组所有者命令。
+     *
+     * @param message   消息实体
+     * @param chat      聊天实体
+     * @return          如果是无效命令则返回 true，否则返回 false
+     */
     private boolean isInvalidGroupOwnerCommand(Message message, Chat chat) {
         if (message == null || message.from() == null || chat == null || chat.id() == null) {
             return true;
@@ -386,6 +422,14 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
+    /**
+     * 删除私聊中的成对消息。
+     *
+     * @param updateId          更新 ID
+     * @param userId            用户 ID
+     * @param privateChatId     私聊 chatId
+     * @param repliedMessageId  被回复消息 ID
+     */
     private void deletePairedMessagesFromPrivate(Integer updateId, Long userId, Long privateChatId, Long repliedMessageId) {
         com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
         if (mapping == null) {
@@ -428,6 +472,13 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
+    /**
+     * 删除群聊中的成对消息。
+     *
+     * @param updateId          更新 ID
+     * @param groupId           群 chatId
+     * @param repliedMessageId  被回复消息 ID
+     */
     private void deletePairedMessagesFromGroup(Integer updateId, Long groupId, Long repliedMessageId) {
         com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
         if (mapping == null) {
@@ -468,11 +519,23 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
+    /**
+     * 根据消息 ID 查找消息映射。
+     *
+     * @param messageId 消息 ID
+     * @return          消息实体；未找到则返回 null
+     */
     private com.kixyu.tgbot.domain.entity.Message findMessageMapping(Long messageId) {
         return messageService.getMessageByOriginalMessageId(messageId)
                 .orElseGet(() -> messageService.getMessageByForwardedMessageId(messageId).orElse(null));
     }
 
+    /**
+     * 查找有效话题。
+     *
+     * @param mapping 消息映射实体
+     * @return        有效话题实体；未找到则返回 null
+     */
     private Topic findValidTopic(com.kixyu.tgbot.domain.entity.Message mapping) {
         if (mapping == null || mapping.getTopicId() == null) {
             return null;
@@ -485,6 +548,12 @@ public class WebhookServiceImpl implements WebhookService {
         return topic;
     }
 
+    /**
+     * 解析成对消息 ID。
+     *
+     * @param mapping 消息映射实体
+     * @return        成对消息 ID 实体；未解析到则返回 null
+     */
     private PairedMessageIds resolvePairedMessageIds(com.kixyu.tgbot.domain.entity.Message mapping) {
         if (mapping == null) {
             return null;
@@ -506,6 +575,12 @@ public class WebhookServiceImpl implements WebhookService {
     private record PairedMessageIds(Long userMessageId, Long groupMessageId) {
     }
 
+    /**
+     * 解析字符串为长整型 chatId。
+     *
+     * @param chatId 聊天 ID 字符串
+     * @return       解析后的长整型 chatId；解析失败则返回 null
+     */
     private Long parseChatIdLong(String chatId) {
         if (chatId == null || chatId.isBlank()) {
             return null;
@@ -517,6 +592,12 @@ public class WebhookServiceImpl implements WebhookService {
         }
     }
 
+    /**
+     * 调用 Telegram API 删除群话题。
+     *
+     * @param groupId  群 chatId
+     * @param threadId 话题 ID
+     */
     private void callDeleteForumTopic(Long groupId, Long threadId) {
         String token = telegramBotProperties.getToken();
         if (token == null || token.isBlank()) {

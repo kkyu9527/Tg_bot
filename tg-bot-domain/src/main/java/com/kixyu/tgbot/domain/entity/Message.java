@@ -86,10 +86,11 @@ public class Message {
         updateTime = LocalDateTime.now();
     }
 
+    // 消息类型枚举
     public enum MessageType {
         USER_MESSAGE,           // 用户原始消息
         BOT_FORWARDED_MESSAGE,  // 机器人转发的消息
-        OWNER_MESSAGE     // 主人在话题中的回复
+        OWNER_MESSAGE           // 主人在话题中的回复
     }
 
     public enum ContentType {

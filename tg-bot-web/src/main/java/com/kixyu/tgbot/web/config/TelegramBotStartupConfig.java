@@ -16,6 +16,13 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 public class TelegramBotStartupConfig {
 
+    /**
+     * 初始化 Telegram 机器人的 Webhook。
+     *
+     * @param telegramApiClient     Telegram API 客户端
+     * @param telegramBotProperties 机器人配置属性
+     * @return                      ApplicationRunner 实例，用于在应用启动时执行 Webhook 初始化
+     */
     @Bean
     public ApplicationRunner telegramWebhookInitializer(TelegramApiClient telegramApiClient, TelegramBotProperties telegramBotProperties) {
         return args -> {
@@ -36,6 +43,11 @@ public class TelegramBotStartupConfig {
         };
     }
 
+    /**
+     * 初始化 Telegram 机器人的命令菜单。
+     *
+     * @param telegramApiClient Telegram API 客户端
+     */
     private static void initBotCommands(TelegramApiClient telegramApiClient) {
         try {
             BotCommand start = new BotCommand("start", "开始与机器人对话");
@@ -57,6 +69,12 @@ public class TelegramBotStartupConfig {
         }
     }
 
+    /**
+     * 清理 Webhook URL 中的无效字符。
+     *
+     * @param raw   原始 Webhook URL
+     * @return      清理后的 Webhook URL
+     */
     private static String sanitizeWebhookUrl(String raw) {
         if (raw == null) {
             return null;

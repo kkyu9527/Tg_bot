@@ -74,6 +74,11 @@ final class MediaGroupRelaySupport {
         void setScheduledCheck(ScheduledFuture<?> scheduledCheck);
     }
 
+    /**
+     * 消息缓冲区，用于聚合待发送的消息。
+     *
+     * @param <C> 上下文类型
+     */
     static final class MessageBuffer<C> implements FlushBuffer {
 
         private final C context;
@@ -145,6 +150,12 @@ final class MediaGroupRelaySupport {
         }
     }
 
+    /**
+     * 收集到的媒体组元素，包含原始消息和对应的输入媒体。
+     *
+     * @param originals 原始消息列表
+     * @param medias    输入媒体列表
+     */
     record CollectedMediaGroup(List<Message> originals, ArrayList<InputMedia<?>> medias) {
     }
 

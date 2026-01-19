@@ -17,6 +17,15 @@ import java.io.IOException;
 @Slf4j
 public class WebhookRequestLoggingFilter extends OncePerRequestFilter {
 
+    /**
+     * 过滤 Webhook 请求，记录请求信息。
+     *
+     * @param request           HTTP 请求
+     * @param response          HTTP 响应
+     * @param filterChain       过滤器链
+     * @throws ServletException 如果处理请求时发生 Servlet 异常
+     * @throws IOException      如果处理请求时发生 I/O 异常
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

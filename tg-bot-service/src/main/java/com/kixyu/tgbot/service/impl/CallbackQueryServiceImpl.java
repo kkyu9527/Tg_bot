@@ -72,6 +72,12 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         telegramApiClient.execute(req);
     }
 
+    /**
+     * 处理拉黑或取消拉黑用户的回调查询。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param data          包含操作类型和目标用户ID的回调数据
+     */
     private void handleBlockCallback(CallbackQuery callbackQuery, String data) {
         Long ownerId = telegramBotProperties.getOwnerId();
         if (ownerId != null && (callbackQuery.from() == null || !ownerId.equals(callbackQuery.from().id()))) {
@@ -129,6 +135,13 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         telegramApiClient.execute(edit);
     }
 
+    /**
+     * 构建拉黑或取消拉黑用户的内联键盘。
+     *
+     * @param userId    目标用户ID
+     * @param blocked   是否已拉黑
+     * @return          内联键盘标记up
+     */
     private InlineKeyboardMarkup buildBlockInlineKeyboard(Long userId, boolean blocked) {
         String text = blocked ? "取消拉黑" : "拉黑此用户";
         String action = blocked ? "unblock" : "block";
@@ -139,6 +152,11 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         return markup;
     }
 
+    /**
+     * 通知目标用户已被拉黑。
+     *
+     * @param userId 目标用户ID
+     */
     private void notifyTargetUserBlocked(Long userId) {
         if (userId == null) {
             return;
@@ -152,6 +170,11 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         }
     }
 
+    /**
+     * 通知目标用户已被取消拉黑。
+     *
+     * @param userId 目标用户ID
+     */
     private void notifyTargetUserUnblocked(Long userId) {
         if (userId == null) {
             return;

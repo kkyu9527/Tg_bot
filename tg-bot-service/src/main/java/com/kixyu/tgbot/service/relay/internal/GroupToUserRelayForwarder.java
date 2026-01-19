@@ -239,6 +239,12 @@ public class GroupToUserRelayForwarder {
                 context.threadId(), context.userId(), context.mediaGroupId(), sent.length);
     }
 
+    /**
+     * 判断 Telegram API 响应是否提示用户已被阻塞或账号已停用。
+     *
+     * @param response Telegram API 响应
+     * @return         如果响应提示用户被阻塞或账号停用，则返回 true；否则返回 false
+     */
     private boolean looksLikeBlocked(BaseResponse response) {
         if (response == null || response.description() == null) {
             return false;
@@ -249,6 +255,13 @@ public class GroupToUserRelayForwarder {
                 || msg.contains("chat not found");
     }
 
+    /**
+     * 通知群话题主人用户已被阻塞或账号已停用。
+     *
+     * @param groupId  群 chatId
+     * @param threadId 话题 ID
+     * @param userId   被阻塞或停用的用户 ID
+     */
     private void notifyOwnerUserBlocked(Long groupId, Long threadId, Long userId) {
         if (groupId == null || threadId == null || userId == null) {
             return;

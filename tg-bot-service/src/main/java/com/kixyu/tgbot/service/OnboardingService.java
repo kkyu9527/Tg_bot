@@ -1,14 +1,17 @@
 package com.kixyu.tgbot.service;
 
-import com.pengrad.telegrambot.model.User;
+import com.pengrad.telegrambot.model.Chat;
+import com.pengrad.telegrambot.model.Message;
 
 public interface OnboardingService {
 
     /**
-     * 处理用户在私聊中发送的 /start 命令。
+     * 处理从 webhook 解析出的命令入口。
      *
-     * @param user          触发命令的用户
-     * @param privateChatId 用户私聊窗口的聊天 ID
+     * @param command  命令字符串（不含斜杠）
+     * @param updateId 更新 ID
+     * @param message  消息实体
+     * @param chat     聊天实体
      */
-    void handleStart(User user, Long privateChatId);
+    void handleCommand(String command, Integer updateId, Message message, Chat chat);
 }

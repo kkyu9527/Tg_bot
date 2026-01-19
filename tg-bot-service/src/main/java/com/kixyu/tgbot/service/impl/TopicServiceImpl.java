@@ -108,7 +108,7 @@ public class TopicServiceImpl implements TopicService {
      * @param lastName  姓
      * @param topicId   Telegram 话题 ID
      * @param chatId    聊天 ID
-     * @return 持久化后的话题实体
+     * @return          持久化后的话题实体
      */
     @Override
     public Topic createTopic(Long userId, String username, String firstName, String lastName,
@@ -139,7 +139,7 @@ public class TopicServiceImpl implements TopicService {
      * @param username  用户名
      * @param firstName 名
      * @param lastName  姓
-     * @return 已存在或更新后的话题实体
+     * @return          已存在或更新后的话题实体
      */
     @Override
     public Topic getOrCreateTopicByUserAndChat(Long userId, String chatId, String username, String firstName, String lastName) {

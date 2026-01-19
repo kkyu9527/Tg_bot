@@ -371,9 +371,9 @@ public class OnboardingServiceImpl implements OnboardingService {
     /**
      * 检查当前命令是否为无效的群主命令。
      *
-     * @param message 消息实体
-     * @param chat    聊天实体
-     * @return 无效则返回 true
+     * @param message   消息实体
+     * @param chat      聊天实体
+     * @return          无效则返回 true
      */
     private boolean isInvalidGroupOwnerCommand(Message message, Chat chat) {
         if (message == null || message.from() == null || chat == null || chat.id() == null) {
@@ -436,7 +436,12 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 删除私聊中的一对关联消息（用户私聊与群话题）。
+     * 删除一对私聊与群话题消息。
+     *
+     * @param updateId          更新 ID
+     * @param userId            用户 ID
+     * @param privateChatId     私聊 ID
+     * @param repliedMessageId  被回复的消息 ID
      */
     private void deletePairedMessagesFromPrivate(Integer updateId, Long userId, Long privateChatId, Long repliedMessageId) {
         com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
@@ -481,7 +486,11 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 删除群话题中的一对关联消息（群话题与用户私聊）。
+     * 删除一对私聊与群话题消息。
+     *
+     * @param updateId          更新 ID
+     * @param groupId           群 ID
+     * @param repliedMessageId  被回复的消息 ID
      */
     private void deletePairedMessagesFromGroup(Integer updateId, Long groupId, Long repliedMessageId) {
         com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
@@ -524,7 +533,10 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 根据消息 ID 查找消息映射记录。
+     * 根据消息 ID 查找消息映射。
+     *
+     * @param messageId 消息 ID（可能是原始或转发消息）
+     * @return          匹配的消息映射（如果存在）
      */
     private com.kixyu.tgbot.domain.entity.Message findMessageMapping(Long messageId) {
         return messageService.getMessageByOriginalMessageId(messageId)
@@ -532,7 +544,10 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 根据消息映射查找有效的话题。
+     * 根据话题 ID 获取有效的话题。
+     *
+     * @param mapping   消息映射
+     * @return          有效的话题实体（如果存在且字段合法）
      */
     private Topic findValidTopic(com.kixyu.tgbot.domain.entity.Message mapping) {
         if (mapping == null || mapping.getTopicId() == null) {
@@ -548,6 +563,9 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     /**
      * 从消息映射解析出用户消息 ID 和群消息 ID。
+     *
+     * @param mapping   消息映射
+     * @return          包含用户与群消息 ID 的记录（无效则返回 null）
      */
     private PairedMessageIds resolvePairedMessageIds(com.kixyu.tgbot.domain.entity.Message mapping) {
         if (mapping == null) {
@@ -571,7 +589,10 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 调用 Telegram API 删除群话题。
+     * 删除指定群的指定话题。
+     *
+     * @param groupId  群 ID
+     * @param threadId 话题 ID
      */
     private void callDeleteForumTopic(Long groupId, Long threadId) {
         String token = telegramBotProperties.getToken();
@@ -599,6 +620,9 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     /**
      * 向指定聊天发送文本消息。
+     *
+     * @param chatId 聊天 ID
+     * @param text   文本内容
      */
     private void sendText(Long chatId, String text) {
         if (chatId == null) {

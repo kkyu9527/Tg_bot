@@ -77,17 +77,17 @@ public class Topic {
         }
 
         if (lastName != null && !lastName.trim().isEmpty()) {
-            if (topicName.length() > 0) {
+            if (!topicName.isEmpty()) {
                 topicName.append(" ");
             }
             topicName.append(lastName.trim());
         }
 
-        if (topicName.length() == 0 && username != null && !username.trim().isEmpty()) {
+        if (topicName.isEmpty() && username != null && !username.trim().isEmpty()) {
             topicName.append(username.trim());
         }
 
-        if (topicName.length() == 0 && userId != null) {
+        if (topicName.isEmpty() && userId != null) {
             topicName.append("User ").append(userId);
         }
 

@@ -6,8 +6,8 @@ services:
     networks:
       - 1panel-network
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/tg_bot_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tg_bot_db
+      SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "false"

@@ -7,12 +7,12 @@ spring:
   profiles:
     active: dev
 
-  # 数据库配置
+  # 数据库配置（PostgreSQL）
   datasource:
-    url: jdbc:mysql://localhost:3306/tg_bot_db
-    username: ${DB_USERNAME:root}
+    url: jdbc:postgresql://localhost:5432/tg_bot_db
+    username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:password}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
 
   # JPA 配置
   jpa:
@@ -21,7 +21,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     open-in-view: false
 

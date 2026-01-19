@@ -1,6 +1,6 @@
 services:
   app:
-    image: kixyu9527/tg_bot:latest
+    image: kixyu9527/tg_bot_pg:latest
     container_name: tg-bot-app
     restart: always
     networks:

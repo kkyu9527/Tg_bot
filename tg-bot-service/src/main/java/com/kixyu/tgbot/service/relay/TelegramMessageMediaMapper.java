@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service.relay.internal;
+package com.kixyu.tgbot.service.relay;
 
 import com.kixyu.tgbot.domain.entity.Message.ContentType;
 import org.springframework.stereotype.Component;

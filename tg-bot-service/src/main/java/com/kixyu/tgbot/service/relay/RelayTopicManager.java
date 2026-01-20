@@ -1,10 +1,10 @@
-package com.kixyu.tgbot.service.relay.internal;
+package com.kixyu.tgbot.service.relay;
 
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.TopicService;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.support.OnboardingSupport;
-import com.kixyu.tgbot.telegram.support.TelegramApiErrorUtil;
+import com.kixyu.tgbot.telegram.TelegramApiErrorUtil;
 import com.pengrad.telegrambot.model.ForumTopic;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;

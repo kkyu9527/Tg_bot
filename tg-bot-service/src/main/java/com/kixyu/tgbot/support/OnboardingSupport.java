@@ -3,7 +3,7 @@ package com.kixyu.tgbot.support;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.TopicService;
 import com.kixyu.tgbot.service.UserService;
-import com.kixyu.tgbot.telegram.support.TelegramApiErrorUtil;
+import com.kixyu.tgbot.telegram.TelegramApiErrorUtil;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.File;

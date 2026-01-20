@@ -71,6 +71,12 @@ public class RelayReplyMapper {
         return originalMessageId.intValue();
     }
 
+    /**
+     * 将用户侧“回复”的 replyTo 映射为群内“主人回复”的 replyToMessageId。
+     *
+     * @param privateMessage    用户侧消息
+     * @return                  群内“主人回复”的 replyToMessageId；无法映射则返回 null
+     */
     public Integer resolveGroupReplyToMessageId(Message privateMessage) {
         if (privateMessage.replyToMessage() == null || privateMessage.replyToMessage().messageId() == null) {
             return null;

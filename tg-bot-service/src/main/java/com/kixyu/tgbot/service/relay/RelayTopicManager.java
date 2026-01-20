@@ -116,10 +116,7 @@ public class RelayTopicManager {
 
         try {
             BaseResponse response = telegramApiClient.execute(new EditForumTopic(groupChatIdLong, topic.getTopicId()).name(topicName));
-            if (response != null && (response.isOk() || TelegramApiErrorUtil.looksLikeNotModified(response))) {
-                return true;
-            }
-            return false;
+            return response != null && (response.isOk() || TelegramApiErrorUtil.looksLikeNotModified(response));
         } catch (RuntimeException e) {
             return false;
         }

@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service.relay.internal.mapper;
+package com.kixyu.tgbot.service.relay.mapper;
 
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.MessageService;

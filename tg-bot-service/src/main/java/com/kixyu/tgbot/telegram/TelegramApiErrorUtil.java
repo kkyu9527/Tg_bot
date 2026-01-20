@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.telegram.support;
+package com.kixyu.tgbot.telegram;
 
 import com.pengrad.telegrambot.response.BaseResponse;
 

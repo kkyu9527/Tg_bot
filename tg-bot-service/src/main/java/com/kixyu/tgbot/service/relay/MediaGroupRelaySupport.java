@@ -109,41 +109,81 @@ final class MediaGroupRelaySupport {
             }
         }
 
+        /**
+         * 获取缓冲中的消息数量。
+         *
+         * @return 消息数量
+         */
         @Override
         public int messageCount() {
             return messages.size();
         }
 
+        /**
+         * 获取上最后一次检查时的消息数量。
+         *
+         * @return 上一次数量
+         */
         @Override
         public int getLastCount() {
             return lastCount;
         }
 
+        /**
+         * 更新上最后一次检查时的消息数量。
+         *
+         * @param lastCount 上一次数量
+         */
         @Override
         public void setLastCount(int lastCount) {
             this.lastCount = lastCount;
         }
 
+        /**
+         * 获取消息数量稳定计数（连续多次不变的次数）。
+         *
+         * @return 稳定计数
+         */
         @Override
         public int getStableCount() {
             return stableCount;
         }
 
+        /**
+         * 更新消息数量稳定计数。
+         *
+         * @param stableCount 稳定计数
+         */
         @Override
         public void setStableCount(int stableCount) {
             this.stableCount = stableCount;
         }
 
+        /**
+         * 获取缓冲创建时间（毫秒）。
+         *
+         * @return 创建时间戳（毫秒）
+         */
         @Override
         public long getCreatedAtMillis() {
             return createdAtMillis;
         }
 
+        /**
+         * 获取定时检查任务。
+         *
+         * @return 定时任务
+         */
         @Override
         public ScheduledFuture<?> getScheduledCheck() {
             return scheduledCheck;
         }
 
+        /**
+         * 设置定时检查任务。
+         *
+         * @param scheduledCheck 定时任务
+         */
         @Override
         public void setScheduledCheck(ScheduledFuture<?> scheduledCheck) {
             this.scheduledCheck = scheduledCheck;

@@ -88,7 +88,7 @@ public class TelegramMessageMediaMapper {
 
         if (message.photo() != null && message.photo().length > 0) {
             PhotoSize best = java.util.Arrays.stream(message.photo())
-                    .max(Comparator.comparingLong(p -> p.fileSize() == null ? 0L : p.fileSize().longValue()))
+                    .max(Comparator.comparingLong(p -> p.fileSize() == null ? 0L : p.fileSize()))
                     .orElse(message.photo()[message.photo().length - 1]);
             if (best != null && best.fileId() != null) {
                 InputMediaPhoto mediaPhoto = new InputMediaPhoto(best.fileId());
@@ -100,7 +100,7 @@ public class TelegramMessageMediaMapper {
         }
 
         Video video = message.video();
-        if (video != null && video.fileId() != null) {
+        if (video != null) {
             InputMediaVideo mediaVideo = new InputMediaVideo(video.fileId());
             if (message.caption() != null && !message.caption().isBlank()) {
                 mediaVideo.caption(message.caption());
@@ -109,7 +109,7 @@ public class TelegramMessageMediaMapper {
         }
 
         Document document = message.document();
-        if (document != null && document.fileId() != null) {
+        if (document != null) {
             InputMediaDocument mediaDocument = new InputMediaDocument(document.fileId());
             if (message.caption() != null && !message.caption().isBlank()) {
                 mediaDocument.caption(message.caption());
@@ -118,7 +118,7 @@ public class TelegramMessageMediaMapper {
         }
 
         Audio audio = message.audio();
-        if (audio != null && audio.fileId() != null) {
+        if (audio != null) {
             InputMediaAudio mediaAudio = new InputMediaAudio(audio.fileId());
             if (message.caption() != null && !message.caption().isBlank()) {
                 mediaAudio.caption(message.caption());

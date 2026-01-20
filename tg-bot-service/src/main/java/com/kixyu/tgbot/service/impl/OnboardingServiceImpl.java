@@ -391,6 +391,44 @@ public class OnboardingServiceImpl implements OnboardingService {
 
         Long repliedMessageId = message.replyToMessage().messageId().longValue();
         Long chatId = chat.id();
+
+        int repliedDate = message.replyToMessage().date();
+        long nowSeconds = System.currentTimeMillis() / 1000L;
+        if (nowSeconds - repliedDate > 48L * 3600L) {
+            Integer commandMessageId = message.messageId();
+            if (commandMessageId != null) {
+                try {
+                    telegramApiClient.execute(new DeleteMessage(chatId, commandMessageId));
+                } catch (RuntimeException e) {
+                    log.warn("删除超过 48 小时的 /delete 命令消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, commandMessageId, e);
+                }
+            }
+            new Thread(() -> {
+                Integer hintId = null;
+                try {
+                    SendResponse resp = telegramApiClient.execute(
+                            new SendMessage(chatId.longValue(), "撤回失败：消息发送已超过 48 小时，受 Telegram 限制无法删除（5s后删除本消息）")
+                    );
+                    hintId = resp == null || resp.message() == null ? null : resp.message().messageId();
+                } catch (RuntimeException e) {
+                    log.warn("发送超过 48 小时删除失败提示消息失败，updateId={}, chatId={}", updateId, chatId, e);
+                }
+                try {
+                    Thread.sleep(5_000L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                if (hintId != null) {
+                    try {
+                        telegramApiClient.execute(new DeleteMessage(chatId, hintId));
+                    } catch (RuntimeException e) {
+                        log.warn("删除超过 48 小时删除失败提示消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, hintId, e);
+                    }
+                }
+            }).start();
+            return;
+        }
+
         Long groupId = telegramBotProperties.getGroupId();
 
         if (Chat.Type.Private.equals(chat.type())) {
@@ -415,7 +453,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                             Integer hintId = null;
                             try {
                                 SendResponse resp = telegramApiClient.execute(
-                                        new SendMessage(chatId.longValue(), "不能删除非自己发送的消息（5s后删除相关内容）")
+                                        new SendMessage(chatId.longValue(), "不能删除非自己发送的消息（5s后删除本消息）")
                                 );
                                 hintId = resp == null || resp.message() == null ? null : resp.message().messageId();
                             } catch (RuntimeException e) {

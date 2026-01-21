@@ -170,22 +170,30 @@ public class OnboardingServiceImpl implements OnboardingService {
 
         String displayName = Topic.generateTopicName(user.firstName(), user.lastName(), user.username(), user.id());
         StringBuilder text = new StringBuilder();
-        text.append("账号信息\n");
-        text.append("名字：").append(displayName).append("\n");
-        text.append("用户ID：").append(user.id());
+        text.append("📇 账号信息\n\n");
+        text.append("👤 名字：").append(displayName).append("\n");
+        text.append("🆔 用户 ID：").append(user.id());
         if (user.username() != null && !user.username().isBlank()) {
-            text.append("\n用户名：@").append(user.username());
+            text.append("\n📛 用户名：@").append(user.username());
         }
         if (user.languageCode() != null && !user.languageCode().isBlank()) {
-            text.append("\n语言：").append(user.languageCode());
+            text.append("\n🌐 语言：").append(user.languageCode());
         }
         if (Boolean.TRUE.equals(user.isPremium())) {
-            text.append("\n账号类型：Telegram Premium");
+            text.append("\n💎 账号类型：Telegram Premium");
         }
-        text.append("\n\n小技巧：如果想撤回一条已经发送的消息，可以在私聊或话题中回复那条消息，然后发送 /delete，机器人会尽量同时删除两端的对应消息（受 Telegram 限制，部分旧消息可能无法撤回）。");
+        text.append("\n\n💡 小技巧\n");
+        text.append("如果想撤回一条已经发送的消息，可以在私聊或话题中回复那条消息，然后发送 /delete。\n");
+        text.append("我会尽量同时删除两端的对应消息（受 Telegram 限制，部分旧消息可能无法撤回）。");
 
         try {
-            onboardingCommonService.sendText(privateChatId, text.toString());
+            SendResponse response = telegramApiClient.execute(
+                    new SendMessage(privateChatId.longValue(), text.toString())
+            );
+            telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
+            if (message.messageId() != null) {
+                telegramApiClient.scheduleDelete(privateChatId, message.messageId(), 30_000L);
+            }
             log.info("处理 /info 完成，updateId={}, userId={}", updateId, user.id());
         } catch (RuntimeException e) {
             log.warn("处理 /info 发送消息失败，updateId={}, userId={}", updateId, user.id(), e);
@@ -213,10 +221,16 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
 
         Long chatId = chat.id();
-        String text = "当前群组 ID 为：" + chatId;
+        String text = "🆔 当前群组 ID：" + chatId;
 
         try {
-            onboardingCommonService.sendText(chatId, text);
+            SendResponse response = telegramApiClient.execute(
+                    new SendMessage(chatId.longValue(), text)
+            );
+            telegramApiClient.scheduleDeleteIfOk(chatId, response, 30_000L);
+            if (message.messageId() != null) {
+                telegramApiClient.scheduleDelete(chatId, message.messageId(), 30_000L);
+            }
             log.info("处理 /chatid 完成，updateId={}, chatId={}", updateId, chatId);
         } catch (RuntimeException e) {
             log.warn("处理 /chatid 发送消息失败，updateId={}, chatId={}", updateId, chatId, e);
@@ -284,13 +298,15 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
         Long chatId = chat.id();
         StringBuilder text = new StringBuilder();
-        text.append("请选择该用户的配置：\n");
+        text.append("⚙️ 用户配置\n\n");
+        text.append("请在下方选择该用户的配置：\n");
         text.append("userId = ").append(targetUserId);
 
         InlineKeyboardMarkup keyboard = onboardingSupport.buildUserConfigKeyboard(topic);
 
+        SendResponse configResponse = null;
         try {
-            telegramApiClient.execute(
+            configResponse = telegramApiClient.execute(
                     new SendMessage(chatId.longValue(), text.toString())
                             .messageThreadId(threadId)
                             .replyMarkup(keyboard)
@@ -300,6 +316,13 @@ public class OnboardingServiceImpl implements OnboardingService {
         } catch (RuntimeException e) {
             log.warn("发送用户配置选择消息失败，updateId={}, groupChatId={}, threadId={}, userId={}",
                     updateId, groupChatId, threadId, targetUserId, e);
+        }
+
+        if (configResponse != null && configResponse.message() != null && configResponse.message().messageId() != null) {
+            telegramApiClient.scheduleDelete(chatId, configResponse.message().messageId(), 30_000L);
+        }
+        if (message.messageId() != null) {
+            telegramApiClient.scheduleDelete(chat.id(), message.messageId(), 30_000L);
         }
     }
 
@@ -318,28 +341,14 @@ public class OnboardingServiceImpl implements OnboardingService {
             Long chatId = chat.id();
             try {
                 SendResponse response = telegramApiClient.execute(
-                        new SendMessage(chatId.longValue(), "请先回复要撤回的那条消息，然后再发送 /delete (5s后删除本消息)")
+                        new SendMessage(chatId.longValue(), "⚠️ 小提示\n\n请先「回复」要撤回的那条消息，然后再发送 /delete。\n（⏱️ 30 秒后会自动删除本条提示～）")
                 );
-                Integer hintMessageId = response == null || response.message() == null ? null : response.message().messageId();
-                if (hintMessageId != null) {
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(5_000L);
-                            telegramApiClient.execute(new DeleteMessage(chatId, hintMessageId));
-                        } catch (InterruptedException ignored) {
-                            Thread.currentThread().interrupt();
-                        } catch (RuntimeException ex) {
-                            log.warn("删除 /delete 提示消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, hintMessageId, ex);
-                        }
-                    }).start();
-                }
+                telegramApiClient.scheduleDeleteIfOk(chatId, response, 30_000L);
             } catch (RuntimeException e) {
                 log.warn("提示 /delete 使用方式失败，updateId={}, chatId={}", updateId, chatId, e);
             }
-            try {
-                telegramApiClient.execute(new DeleteMessage(chatId, message.messageId()));
-            } catch (RuntimeException e) {
-                log.warn("删除无效 /delete 命令消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, message.messageId(), e);
+            if (message.messageId() != null) {
+                telegramApiClient.scheduleDelete(chatId, message.messageId(), 30_000L);
             }
             return;
         }
@@ -352,24 +361,20 @@ public class OnboardingServiceImpl implements OnboardingService {
         if (nowSeconds - repliedDate > 48L * 3600L) {
             Integer commandMessageId = message.messageId();
             if (commandMessageId != null) {
-                try {
-                    telegramApiClient.execute(new DeleteMessage(chatId, commandMessageId));
-                } catch (RuntimeException e) {
-                    log.warn("删除超过 48 小时的 /delete 命令消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, commandMessageId, e);
-                }
+                telegramApiClient.scheduleDelete(chatId, commandMessageId, 30_000L);
             }
             new Thread(() -> {
                 Integer hintId = null;
                 try {
                     SendResponse resp = telegramApiClient.execute(
-                            new SendMessage(chatId.longValue(), "撤回失败：消息发送已超过 48 小时，受 Telegram 限制无法删除（5s后删除本消息）")
+                            new SendMessage(chatId.longValue(), "⛔ 撤回失败\n\n原因：消息发送已超过 48 小时，受 Telegram 限制无法删除。\n（⏱️ 30 秒后会自动删除本条提示～）")
                     );
                     hintId = resp == null || resp.message() == null ? null : resp.message().messageId();
                 } catch (RuntimeException e) {
                     log.warn("发送超过 48 小时删除失败提示消息失败，updateId={}, chatId={}", updateId, chatId, e);
                 }
                 try {
-                    Thread.sleep(5_000L);
+                    Thread.sleep(30_000L);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -398,24 +403,20 @@ public class OnboardingServiceImpl implements OnboardingService {
                             || mapping.getMessageType() != com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
                         Integer commandMessageId = message.messageId();
                         if (commandMessageId != null) {
-                            try {
-                                telegramApiClient.execute(new DeleteMessage(chatId, commandMessageId));
-                            } catch (RuntimeException e) {
-                                log.warn("删除 /delete 命令消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, commandMessageId, e);
-                            }
+                            telegramApiClient.scheduleDelete(chatId, commandMessageId, 30_000L);
                         }
                         new Thread(() -> {
                             Integer hintId = null;
                             try {
                                 SendResponse resp = telegramApiClient.execute(
-                                        new SendMessage(chatId.longValue(), "不能删除非自己发送的消息（5s后删除本消息）")
+                                        new SendMessage(chatId.longValue(), "🙅‍♀️ 不能删除「非本人发送」的消息哦～\n\n（⏱️ 30 秒后会自动删除本条提示～）")
                                 );
                                 hintId = resp == null || resp.message() == null ? null : resp.message().messageId();
                             } catch (RuntimeException e) {
                                 log.warn("发送删除他人消息提示失败，updateId={}, chatId={}", updateId, chatId, e);
                             }
                             try {
-                                Thread.sleep(5_000L);
+                                Thread.sleep(30_000L);
                             } catch (InterruptedException e) {
                                 Thread.currentThread().interrupt();
                             }
@@ -440,11 +441,8 @@ public class OnboardingServiceImpl implements OnboardingService {
             onboardingCommonService.deletePairedMessagesFromGroup(updateId, chatId, repliedMessageId);
         }
 
-        try {
-            telegramApiClient.execute(new DeleteMessage(chatId, message.messageId()));
-        } catch (RuntimeException e) {
-            log.warn("删除 /delete 命令消息失败，updateId={}, chatId={}, messageId={}", updateId, chatId, message.messageId(), e);
+        if (message.messageId() != null) {
+            telegramApiClient.scheduleDelete(chatId, message.messageId(), 30_000L);
         }
     }
-
 }

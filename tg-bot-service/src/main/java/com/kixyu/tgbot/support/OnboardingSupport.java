@@ -92,10 +92,10 @@ public class OnboardingSupport {
     public void sendWelcomeToUser(User user, Long privateChatId) {
         String displayName = Topic.generateTopicName(user.firstName(), user.lastName(), user.username(), user.id());
         String text =
-                "你好，" + displayName + "！\n" +
-                        "你的用户ID是：" + user.id() + "\n\n" +
-                        "你现在可以直接给我发消息，我会帮你转发给主人。\n\n" +
-                        "当前默认仅支持转发纯文本消息，如需转发图片、视频等，请联系主人开启全模式。";
+                "👋 嗨，" + displayName + "！\n\n" +
+                        "🆔 你的用户 ID：" + user.id() + "\n\n" +
+                        "📨 现在可以直接给我发消息，我会帮你转发给主人～\n\n" +
+                        "💡 当前默认仅支持转发「纯文本消息」。如需转发图片、视频等，请联系主人开启「全消息模式」✨";
         try {
             userService.saveOrUpdateUserInfo(
                     user.id(),
@@ -361,11 +361,11 @@ public class OnboardingSupport {
         String displayName = Topic.generateTopicName(user.firstName(), user.lastName(), user.username(), user.id());
 
         StringBuilder text = new StringBuilder();
-        text.append("新用户已开始对话\n");
-        text.append("名字：").append(displayName).append("\n");
-        text.append("用户ID：").append(user.id());
+        text.append("✨ 新用户已开始对话\n\n");
+        text.append("👤 名字：").append(displayName).append("\n");
+        text.append("🆔 用户 ID：").append(user.id());
         if (user.username() != null && !user.username().isBlank()) {
-            text.append("\n用户名：@").append(user.username());
+            text.append("\n📛 用户名：@").append(user.username());
         }
         return text.toString();
     }

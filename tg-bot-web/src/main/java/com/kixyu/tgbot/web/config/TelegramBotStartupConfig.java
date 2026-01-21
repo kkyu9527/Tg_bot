@@ -51,10 +51,10 @@ public class TelegramBotStartupConfig {
     private static void initBotCommands(TelegramApiClient telegramApiClient) {
         try {
             BotCommand start = new BotCommand("start", "开始与机器人对话");
-            BotCommand info = new BotCommand("info", "查看当前账号信息");
+            BotCommand info = new BotCommand("info", "查看账号信息");
             BotCommand delete = new BotCommand("delete", "回复一条消息并发送以撤回该消息");
             BotCommand closeTopic = new BotCommand("close_topic", "删除当前话题并清理数据");
-            BotCommand userConfig = new BotCommand("user_config", "配置当前话题的用户参数（拉黑与转发模式等）");
+            BotCommand userConfig = new BotCommand("user_config", "配置当前话题的用户参数");
             BotCommand chatId = new BotCommand("chatid", "获取当前群组 ID");
 
             BotCommand[] defaultCommands = new BotCommand[]{start, info};

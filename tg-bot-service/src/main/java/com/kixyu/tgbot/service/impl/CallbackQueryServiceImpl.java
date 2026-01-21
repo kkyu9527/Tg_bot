@@ -240,7 +240,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         }
         Long chatId = message.chat().id();
         Integer messageId = message.messageId();
-        InlineKeyboardMarkup markup = buildModeInlineKeyboard(topicId, fullMode);
+        InlineKeyboardMarkup markup = buildBlockAndModeInlineKeyboard(topic, fullMode);
         EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
         telegramApiClient.execute(edit);
     }
@@ -262,15 +262,37 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         return markup;
     }
 
-    private InlineKeyboardMarkup buildModeInlineKeyboard(Long topicId, boolean fullMode) {
-        String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
-        String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
-        InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
-                .callbackData(MODE_CALLBACK_PREFIX + "text:" + topicId);
-        InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
-                .callbackData(MODE_CALLBACK_PREFIX + "full:" + topicId);
+    /**
+     * 构建拉黑或取消拉黑用户的内联键盘，同时包含消息转发模式选择。
+     *
+     * @param topic    话题实体
+     * @param fullMode 当前是否为全消息模式
+     * @return         内联键盘标记up
+     */
+    private InlineKeyboardMarkup buildBlockAndModeInlineKeyboard(Topic topic, boolean fullMode) {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        markup.addRow(textOnlyButton, fullModeButton);
+
+        Long userId = topic.getUserId();
+        if (userId != null) {
+            boolean blocked = userService.isBlocked(userId);
+            String blockText = blocked ? "取消拉黑" : "拉黑此用户";
+            String blockAction = blocked ? "unblock" : "block";
+            String blockCallback = BLOCK_CALLBACK_PREFIX + blockAction + ":" + userId;
+            InlineKeyboardButton blockButton = new InlineKeyboardButton(blockText).callbackData(blockCallback);
+            markup.addRow(blockButton);
+        }
+
+        Long topicId = topic.getTopicId();
+        if (topicId != null) {
+            String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
+            String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
+            InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
+                    .callbackData(MODE_CALLBACK_PREFIX + "text:" + topicId);
+            InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
+                    .callbackData(MODE_CALLBACK_PREFIX + "full:" + topicId);
+            markup.addRow(textOnlyButton, fullModeButton);
+        }
+
         return markup;
     }
 

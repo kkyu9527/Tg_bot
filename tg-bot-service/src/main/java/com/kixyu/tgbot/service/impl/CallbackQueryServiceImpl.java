@@ -173,9 +173,22 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
             return;
         }
 
-        InlineKeyboardMarkup markup = buildBlockInlineKeyboard(targetUserId, blocked);
-        EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
-        telegramApiClient.execute(edit);
+        Long groupId = telegramBotProperties.getGroupId();
+        Long threadId = message.messageThreadId();
+        if (groupId != null && threadId != null && groupId.equals(chatId)) {
+            Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
+            if (topic != null && String.valueOf(groupId).equals(topic.getChatId())) {
+                boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
+                InlineKeyboardMarkup markup = buildBlockAndModeInlineKeyboard(topic, fullMode);
+                EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
+                telegramApiClient.execute(edit);
+                return;
+            }
+        }
+
+        InlineKeyboardMarkup fallbackMarkup = buildBlockInlineKeyboard(targetUserId, blocked);
+        EditMessageReplyMarkup fallbackEdit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(fallbackMarkup);
+        telegramApiClient.execute(fallbackEdit);
     }
     
     /**

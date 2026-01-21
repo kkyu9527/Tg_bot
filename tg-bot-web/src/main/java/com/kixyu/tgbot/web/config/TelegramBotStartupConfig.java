@@ -53,14 +53,13 @@ public class TelegramBotStartupConfig {
             BotCommand start = new BotCommand("start", "开始与机器人对话");
             BotCommand info = new BotCommand("info", "查看当前账号信息");
             BotCommand delete = new BotCommand("delete", "回复一条消息并发送以撤回该消息");
-            BotCommand chatId = new BotCommand("chatid", "获取当前群组 ID");
             BotCommand closeTopic = new BotCommand("close_topic", "删除当前话题并清理数据");
-            BotCommand block = new BotCommand("block", "拉黑或取消拉黑指定用户");
-            BotCommand fullMode = new BotCommand("full_mode", "选择当前话题的消息转发模式");
+            BotCommand userConfig = new BotCommand("user_config", "配置当前话题的用户参数（拉黑与转发模式等）");
+            BotCommand chatId = new BotCommand("chatid", "获取当前群组 ID");
 
             BotCommand[] defaultCommands = new BotCommand[]{start, info};
             BotCommand[] privateCommands = new BotCommand[]{start, info, delete};
-            BotCommand[] groupCommands = new BotCommand[]{delete, chatId, closeTopic, block, fullMode};
+            BotCommand[] groupCommands = new BotCommand[]{delete, closeTopic, userConfig, chatId};
 
             telegramApiClient.execute(new SetMyCommands(defaultCommands));
             telegramApiClient.execute(new SetMyCommands(privateCommands).scope(new BotCommandScopeAllPrivateChats()));

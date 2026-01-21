@@ -222,36 +222,73 @@ public class OnboardingSupport {
         }
     }
 
-    private InlineKeyboardMarkup buildBlockInlineKeyboard(Long userId, Long topicId, String groupChatId) {
+    /**
+     * 构建用户配置的内联键盘。
+     *
+     * @param topicId       话题 ID
+     * @param groupChatId   群聊 ID 字符串
+     * @return          内联键盘标记up
+     */
+    private InlineKeyboardMarkup buildBlockInlineKeyboard(Long topicId, String groupChatId) {
+        Topic topic = null;
+        if (topicId != null && groupChatId != null) {
+            topic = topicService.getTopicByTopicId(topicId)
+                    .filter(t -> groupChatId.equals(t.getChatId()))
+                    .orElse(null);
+        }
+        if (topic != null) {
+            return buildUserConfigKeyboard(topic);
+        }
+
+        return new InlineKeyboardMarkup();
+    }
+
+    /**
+     * 构建用户配置的内联键盘。
+     *
+     * @param topic 话题实体对象
+     * @return 内联键盘标记
+     */
+    public InlineKeyboardMarkup buildUserConfigKeyboard(Topic topic) {
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+
+        Long userId = topic.getUserId();
+        if (userId != null) {
+            InlineKeyboardButton blockButton = buildBlockButton(userId);
+
+            InlineKeyboardButton listButton = new InlineKeyboardButton("已拉黑用户列表")
+                    .callbackData("bl:list:0");
+
+            markup.addRow(blockButton, listButton);
+        }
+
+        Long topicId = topic.getTopicId();
+        if (topicId != null) {
+            boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
+            String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
+            String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
+            InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
+                    .callbackData("md:text:" + topicId);
+            InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
+                    .callbackData("md:full:" + topicId);
+            markup.addRow(textOnlyButton, fullModeButton);
+        }
+
+        return markup;
+    }
+
+    /**
+     * 构建拉黑用户的内联键盘按钮。
+     *
+     * @param userId 用户 ID
+     * @return 内联键盘按钮
+     */
+    private InlineKeyboardButton buildBlockButton(Long userId) {
         boolean blocked = userService.isBlocked(userId);
         String blockText = blocked ? "取消拉黑" : "拉黑此用户";
         String blockAction = blocked ? "unblock" : "block";
         String blockData = "bl:" + blockAction + ":" + userId;
-        InlineKeyboardButton blockButton = new InlineKeyboardButton(blockText).callbackData(blockData);
-
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        markup.addRow(blockButton);
-
-        if (topicId == null) {
-            return markup;
-        }
-
-        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
-        if (topic == null || topic.getChatId() == null || groupChatId == null || !groupChatId.equals(topic.getChatId())) {
-            return markup;
-        }
-
-        boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
-        String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
-        String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
-
-        InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
-                .callbackData("md:text:" + topicId);
-        InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
-                .callbackData("md:full:" + topicId);
-
-        markup.addRow(textOnlyButton, fullModeButton);
-        return markup;
+        return new InlineKeyboardButton(blockText).callbackData(blockData);
     }
 
     /**
@@ -270,7 +307,7 @@ public class OnboardingSupport {
         }
 
         byte[] avatarBytes = downloadUserAvatarBytes(user.id());
-        InlineKeyboardMarkup markup = buildBlockInlineKeyboard(user.id(), messageThreadId, groupChatId);
+        InlineKeyboardMarkup markup = buildBlockInlineKeyboard(messageThreadId, groupChatId);
         if (avatarBytes != null && avatarBytes.length > 0) {
             try {
                 SendResponse response = telegramApiClient.execute(

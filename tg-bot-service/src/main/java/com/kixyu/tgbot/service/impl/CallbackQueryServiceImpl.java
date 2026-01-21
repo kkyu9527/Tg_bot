@@ -6,6 +6,7 @@ import com.kixyu.tgbot.domain.entity.User;
 import com.kixyu.tgbot.service.CallbackQueryService;
 import com.kixyu.tgbot.service.TopicService;
 import com.kixyu.tgbot.service.UserService;
+import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +17,6 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
-import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.SendMessage;
 
 @Service
@@ -32,6 +32,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
     private final TelegramBotProperties telegramBotProperties;
     private final UserService userService;
     private final TopicService topicService;
+    private final OnboardingSupport onboardingSupport;
 
     /**
      * 处理 Telegram 的回调查询事件。
@@ -102,9 +103,9 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
     /**
      * 解析回调查询数据。
      *
-     * @param callbackQuery 回调查询对象
-     * @param data          回调查询数据
-     * @param invalidIdMessage 如果无效的用户ID，则返回的提示文本
+     * @param callbackQuery     回调查询对象
+     * @param data              回调查询数据
+     * @param invalidIdMessage  如果无效的用户ID，则返回的提示文本
      * @return 解析后的 CallbackAction 对象，如果解析失败则返回 null
      */
     private CallbackAction parseCallbackAction(CallbackQuery callbackQuery, String data, String invalidIdMessage) {
@@ -139,56 +140,114 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
             return;
         }
         String action = callbackAction.action();
+
+        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
+        Message message = rawMessage instanceof Message m ? m : null;
+        if ("list".equals(action)) {
+            handleBlockedList(callbackQuery, message);
+            return;
+        }
+
         Long targetUserId = callbackAction.id();
-        boolean blocked;
         if ("block".equals(action)) {
-            User user = userService.block(targetUserId);
-            blocked = user != null && Boolean.TRUE.equals(user.getBlocked());
+            userService.block(targetUserId);
             notifyTargetUserBlocked(targetUserId);
             answer(callbackQuery, "已拉黑该用户");
         } else if ("unblock".equals(action)) {
-            User user = userService.unblock(targetUserId);
-            blocked = user != null && Boolean.TRUE.equals(user.getBlocked());
+            userService.unblock(targetUserId);
             notifyTargetUserUnblocked(targetUserId);
             answer(callbackQuery, "已取消拉黑");
         } else {
             answer(callbackQuery, "未知操作");
             return;
         }
-        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
-        Message message = rawMessage instanceof Message m ? m : null;
         if (message == null || message.chat() == null || message.messageId() == null) {
             return;
         }
         Long chatId = message.chat().id();
         Integer messageId = message.messageId();
 
-        String originalText = message.text();
-        if (originalText != null
-                && originalText.startsWith("选择要取消拉黑的用户")
-                && "unblock".equals(action)) {
-            EditMessageText editText = new EditMessageText(chatId, messageId, "已移除黑名单")
-                    .replyMarkup(new InlineKeyboardMarkup());
-            telegramApiClient.execute(editText);
+        Long groupId = telegramBotProperties.getGroupId();
+        Long threadId = message.messageThreadId();
+        if (groupId == null || threadId == null || !groupId.equals(chatId)) {
+            return;
+        }
+        Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
+        if (topic == null || !String.valueOf(groupId).equals(topic.getChatId())) {
+            return;
+        }
+        InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
+        EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
+        telegramApiClient.execute(edit);
+    }
+
+    /**
+     * 处理已拉黑用户列表回调。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param message       消息实体
+     */
+    private void handleBlockedList(CallbackQuery callbackQuery, Message message) {
+        if (message == null || message.chat() == null || message.chat().id() == null) {
+            answer(callbackQuery, null);
+            return;
+        }
+        Long chatId = message.chat().id();
+        Long configuredGroupId = telegramBotProperties.getGroupId();
+        if (configuredGroupId != null && !configuredGroupId.equals(chatId)) {
+            answer(callbackQuery, "只能在配置的群组中操作");
             return;
         }
 
-        Long groupId = telegramBotProperties.getGroupId();
-        Long threadId = message.messageThreadId();
-        if (groupId != null && threadId != null && groupId.equals(chatId)) {
-            Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
-            if (topic != null && String.valueOf(groupId).equals(topic.getChatId())) {
-                boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
-                InlineKeyboardMarkup markup = buildBlockAndModeInlineKeyboard(topic, fullMode);
-                EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
-                telegramApiClient.execute(edit);
-                return;
+        java.util.List<User> blockedUsers = userService.listBlocked();
+        if (blockedUsers == null || blockedUsers.isEmpty()) {
+            try {
+                SendMessage req = new SendMessage(chatId.longValue(), "当前没有已拉黑的用户。");
+                Long threadId = message.messageThreadId();
+                if (threadId != null) {
+                    req.messageThreadId(threadId);
+                }
+                telegramApiClient.execute(req);
+            } catch (RuntimeException e) {
+                log.warn("发送“当前没有已拉黑的用户”提示失败，chatId={}", chatId, e);
             }
+            return;
         }
 
-        InlineKeyboardMarkup fallbackMarkup = buildBlockInlineKeyboard(targetUserId, blocked);
-        EditMessageReplyMarkup fallbackEdit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(fallbackMarkup);
-        telegramApiClient.execute(fallbackEdit);
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+        for (User blockedUser : blockedUsers) {
+            Long targetUserId = blockedUser.getUserId();
+            if (targetUserId == null) {
+                continue;
+            }
+            StringBuilder label = new StringBuilder();
+            if (blockedUser.getUsername() != null && !blockedUser.getUsername().isBlank()) {
+                label.append("@").append(blockedUser.getUsername());
+            } else {
+                String displayName = Topic.generateTopicName(
+                        blockedUser.getFirstName(),
+                        blockedUser.getLastName(),
+                        null,
+                        targetUserId
+                );
+                label.append(displayName);
+            }
+            label.append(" (").append(targetUserId).append(")");
+            String callbackData = BLOCK_CALLBACK_PREFIX + "unblock:" + targetUserId;
+            InlineKeyboardButton button = new InlineKeyboardButton(label.toString()).callbackData(callbackData);
+            keyboard.addRow(button);
+        }
+
+        try {
+            SendMessage req = new SendMessage(chatId.longValue(), "选择要取消拉黑的用户：").replyMarkup(keyboard);
+            Long threadId = message.messageThreadId();
+            if (threadId != null) {
+                req.messageThreadId(threadId);
+            }
+            telegramApiClient.execute(req);
+        } catch (RuntimeException e) {
+            log.warn("发送已拉黑用户列表失败，chatId={}", chatId, e);
+        }
     }
     
     /**
@@ -253,60 +312,10 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         }
         Long chatId = message.chat().id();
         Integer messageId = message.messageId();
-        InlineKeyboardMarkup markup = buildBlockAndModeInlineKeyboard(topic, fullMode);
+
+        InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
         EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
         telegramApiClient.execute(edit);
-    }
-
-    /**
-     * 构建拉黑或取消拉黑用户的内联键盘。
-     *
-     * @param userId    目标用户ID
-     * @param blocked   是否已拉黑
-     * @return          内联键盘标记up
-     */
-    private InlineKeyboardMarkup buildBlockInlineKeyboard(Long userId, boolean blocked) {
-        String text = blocked ? "取消拉黑" : "拉黑此用户";
-        String action = blocked ? "unblock" : "block";
-        String callbackData = BLOCK_CALLBACK_PREFIX + action + ":" + userId;
-        InlineKeyboardButton button = new InlineKeyboardButton(text).callbackData(callbackData);
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        markup.addRow(button);
-        return markup;
-    }
-
-    /**
-     * 构建拉黑或取消拉黑用户的内联键盘，同时包含消息转发模式选择。
-     *
-     * @param topic    话题实体
-     * @param fullMode 当前是否为全消息模式
-     * @return         内联键盘标记up
-     */
-    private InlineKeyboardMarkup buildBlockAndModeInlineKeyboard(Topic topic, boolean fullMode) {
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-
-        Long userId = topic.getUserId();
-        if (userId != null) {
-            boolean blocked = userService.isBlocked(userId);
-            String blockText = blocked ? "取消拉黑" : "拉黑此用户";
-            String blockAction = blocked ? "unblock" : "block";
-            String blockCallback = BLOCK_CALLBACK_PREFIX + blockAction + ":" + userId;
-            InlineKeyboardButton blockButton = new InlineKeyboardButton(blockText).callbackData(blockCallback);
-            markup.addRow(blockButton);
-        }
-
-        Long topicId = topic.getTopicId();
-        if (topicId != null) {
-            String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
-            String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
-            InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
-                    .callbackData(MODE_CALLBACK_PREFIX + "text:" + topicId);
-            InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
-                    .callbackData(MODE_CALLBACK_PREFIX + "full:" + topicId);
-            markup.addRow(textOnlyButton, fullModeButton);
-        }
-
-        return markup;
     }
 
     /**

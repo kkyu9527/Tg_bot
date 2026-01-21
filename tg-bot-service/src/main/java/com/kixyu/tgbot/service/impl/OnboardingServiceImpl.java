@@ -4,7 +4,6 @@ import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.OnboardingService;
 import com.kixyu.tgbot.service.TopicService;
-import com.kixyu.tgbot.service.UserService;
 import com.kixyu.tgbot.service.common.OnboardingCommonService;
 import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
@@ -13,7 +12,6 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.DeleteMessage;
 import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.response.SendResponse;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +29,6 @@ public class OnboardingServiceImpl implements OnboardingService {
     private final TelegramBotProperties telegramBotProperties;
     private final TelegramApiClient telegramApiClient;
     private final TopicService topicService;
-    private final UserService userService;
     private final OnboardingCommonService onboardingCommonService;
 
     /**
@@ -66,8 +63,7 @@ public class OnboardingServiceImpl implements OnboardingService {
             case "chatid" -> handleChatIdCommand(updateId, message, chat);
             case "close_topic" -> handleCloseTopicCommand(updateId, message, chat);
             case "delete" -> handleDeleteCommand(updateId, message, chat);
-            case "block" -> handleBlockCommand(updateId, message, chat);
-            case "full_mode" -> handleFullModeCommand(updateId, message, chat);
+            case "user_config" -> handleUserConfigCommand(updateId, message, chat);
             default -> {
             }
         }
@@ -156,137 +152,6 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 处理 /block 命令，列出或取消拉黑用户。
-     *
-     * @param updateId 更新 ID
-     * @param message  消息实体
-     * @param chat     聊天实体
-     */
-    private void handleBlockCommand(Integer updateId, Message message, Chat chat) {
-        if (onboardingCommonService.isInvalidGroupOwnerCommand(message, chat)) {
-            return;
-        }
-        if (message.text() == null || message.text().isBlank()) {
-            return;
-        }
-        String text = message.text().trim();
-        String[] parts = text.split("\\s+");
-        if (parts.length < 2) {
-            Long groupId = telegramBotProperties.getGroupId();
-            Long threadId = message.messageThreadId();
-            Long chatId = chat.id();
-            if (groupId != null && threadId != null && groupId.equals(chatId)) {
-                String groupChatId = String.valueOf(groupId);
-                Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
-                if (topic != null && groupChatId.equals(topic.getChatId()) && topic.getUserId() != null) {
-                    Long targetUserId = topic.getUserId();
-                    boolean blocked = userService.isBlocked(targetUserId);
-                    StringBuilder prompt = new StringBuilder();
-                    prompt.append("请选择是否拉黑该用户：\n");
-                    prompt.append("userId = ").append(targetUserId);
-
-                    String buttonText = blocked ? "取消拉黑此用户" : "拉黑此用户";
-                    String action = blocked ? "unblock" : "block";
-                    String callbackData = "bl:" + action + ":" + targetUserId;
-                    InlineKeyboardButton button = new InlineKeyboardButton(buttonText).callbackData(callbackData);
-                    InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(button);
-                    try {
-                        telegramApiClient.execute(
-                                new SendMessage(chatId.longValue(), prompt.toString())
-                                        .messageThreadId(threadId)
-                                        .replyMarkup(keyboard)
-                        );
-                        log.info("已发送话题用户拉黑选择消息，updateId={}, groupChatId={}, threadId={}, userId={}",
-                                updateId, groupChatId, threadId, targetUserId);
-                    } catch (RuntimeException e) {
-                        log.warn("发送话题用户拉黑选择消息失败，updateId={}, groupChatId={}, threadId={}, userId={}",
-                                updateId, groupChatId, threadId, targetUserId, e);
-                    }
-                    return;
-                }
-            }
-
-            java.util.List<com.kixyu.tgbot.domain.entity.User> blockedUsers = userService.listBlocked();
-            if (blockedUsers == null || blockedUsers.isEmpty()) {
-                try {
-                    onboardingCommonService.sendText(chat.id(), "当前没有已拉黑的用户。");
-                } catch (RuntimeException e) {
-                    log.warn("发送“当前没有已拉黑的用户”提示失败，updateId={}, chatId={}", updateId, chat.id(), e);
-                }
-                return;
-            }
-            com.pengrad.telegrambot.model.request.InlineKeyboardMarkup keyboard = new com.pengrad.telegrambot.model.request.InlineKeyboardMarkup();
-            for (com.kixyu.tgbot.domain.entity.User user : blockedUsers) {
-                Long targetUserId = user.getUserId();
-                if (targetUserId == null) {
-                    continue;
-                }
-                StringBuilder label = new StringBuilder();
-                if (user.getUsername() != null && !user.getUsername().isBlank()) {
-                    label.append("@").append(user.getUsername());
-                } else {
-                    String displayName = Topic.generateTopicName(
-                            user.getFirstName(),
-                            user.getLastName(),
-                            null,
-                            targetUserId
-                    );
-                    label.append(displayName);
-                }
-                label.append(" (").append(targetUserId).append(")");
-                String callbackData = "bl:unblock:" + targetUserId;
-                com.pengrad.telegrambot.model.request.InlineKeyboardButton button =
-                        new com.pengrad.telegrambot.model.request.InlineKeyboardButton(label.toString()).callbackData(callbackData);
-                keyboard.addRow(button);
-            }
-            try {
-                telegramApiClient.execute(
-                        new SendMessage(chat.id().longValue(), "选择要取消拉黑的用户：").replyMarkup(keyboard)
-                );
-            } catch (RuntimeException e) {
-                log.warn("发送已拉黑用户列表失败，updateId={}, chatId={}", updateId, chat.id(), e);
-            }
-            return;
-        }
-        Long targetUserId;
-        try {
-            targetUserId = Long.parseLong(parts[1]);
-        } catch (NumberFormatException e) {
-            Long chatId = chat.id();
-            try {
-                onboardingCommonService.sendText(chatId, "无效的 userId：" + parts[1]);
-            } catch (RuntimeException ex) {
-                log.warn("发送 /block 参数错误提示失败，updateId={}, chatId={}", updateId, chatId, ex);
-            }
-            return;
-        }
-        try {
-            com.kixyu.tgbot.domain.entity.User user = userService.unblock(targetUserId);
-            Long chatId = chat.id();
-            if (chatId != null) {
-                String reply = user != null && !Boolean.TRUE.equals(user.getBlocked())
-                        ? "已取消拉黑用户：" + targetUserId
-                        : "该用户当前未被拉黑：" + targetUserId;
-                onboardingCommonService.sendText(chatId, reply);
-            }
-            try {
-                String notify = "提示：主人已通过命令取消对你的拉黑，你的消息将再次被转发。";
-                telegramApiClient.execute(new SendMessage(targetUserId.longValue(), notify));
-            } catch (RuntimeException e) {
-                log.warn("通过命令取消拉黑后通知用户失败，updateId={}, userId={}", updateId, targetUserId, e);
-            }
-        } catch (RuntimeException e) {
-            Long chatId = chat.id();
-            log.warn("处理 /block 失败，updateId={}, userId={}", updateId, targetUserId, e);
-            try {
-                onboardingCommonService.sendText(chatId, "取消拉黑失败：" + e.getMessage());
-            } catch (RuntimeException ex) {
-                log.warn("发送 /block 失败提示消息失败，updateId={}, chatId={}", updateId, chatId, ex);
-            }
-        }
-    }
-
-    /**
      * 处理 /info 命令，显示当前用户账号信息。
      *
      * @param updateId 更新 ID
@@ -358,6 +223,13 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
     }
 
+    /**
+     * 处理 /close_topic 命令，删除当前话题并清理数据。
+     *
+     * @param updateId 更新 ID
+     * @param message  消息实体
+     * @param chat     聊天实体
+     */
     private void handleCloseTopicCommand(Integer updateId, Message message, Chat chat) {
         if (onboardingCommonService.isInvalidGroupOwnerCommand(message, chat)) {
             return;
@@ -386,19 +258,19 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 处理 /fullmode 命令，为当前话题开启全消息转发模式。
+     * 处理 /user_config 命令，显示当前用户的配置。
      *
      * @param updateId 更新 ID
-     * @param message  命令消息
-     * @param chat     命令所在聊天
+     * @param message  消息实体
+     * @param chat     聊天实体
      */
-    private void handleFullModeCommand(Integer updateId, Message message, Chat chat) {
+    private void handleUserConfigCommand(Integer updateId, Message message, Chat chat) {
         if (onboardingCommonService.isInvalidGroupOwnerCommand(message, chat)) {
             return;
         }
         Long groupId = telegramBotProperties.getGroupId();
         Long threadId = message.messageThreadId();
-        if (groupId == null || threadId == null) {
+        if (groupId == null || threadId == null || chat == null || chat.id() == null) {
             return;
         }
         String groupChatId = String.valueOf(groupId);
@@ -406,29 +278,28 @@ public class OnboardingServiceImpl implements OnboardingService {
         if (topic == null || !groupChatId.equals(topic.getChatId())) {
             return;
         }
-        Long chatId = chat.id();
-        if (chatId == null) {
+        Long targetUserId = topic.getUserId();
+        if (targetUserId == null) {
             return;
         }
-        boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
-        String text = "请选择该用户的转发模式：";
-        String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
-        String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
-        InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
-                .callbackData("md:text:" + topic.getTopicId());
-        InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
-                .callbackData("md:full:" + topic.getTopicId());
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(textOnlyButton, fullModeButton);
+        Long chatId = chat.id();
+        StringBuilder text = new StringBuilder();
+        text.append("请选择该用户的配置：\n");
+        text.append("userId = ").append(targetUserId);
+
+        InlineKeyboardMarkup keyboard = onboardingSupport.buildUserConfigKeyboard(topic);
+
         try {
             telegramApiClient.execute(
-                    new SendMessage(chatId.longValue(), text)
+                    new SendMessage(chatId.longValue(), text.toString())
                             .messageThreadId(threadId)
                             .replyMarkup(keyboard)
             );
-            log.info("已发送转发模式选择消息，updateId={}, groupChatId={}, threadId={}, userId={}",
-                    updateId, groupChatId, threadId, topic.getUserId());
+            log.info("已发送用户配置选择消息，updateId={}, groupChatId={}, threadId={}, userId={}",
+                    updateId, groupChatId, threadId, targetUserId);
         } catch (RuntimeException e) {
-            log.warn("发送转发模式选择消息失败，updateId={}, groupChatId={}, threadId={}", updateId, groupChatId, threadId, e);
+            log.warn("发送用户配置选择消息失败，updateId={}, groupChatId={}, threadId={}, userId={}",
+                    updateId, groupChatId, threadId, targetUserId, e);
         }
     }
 

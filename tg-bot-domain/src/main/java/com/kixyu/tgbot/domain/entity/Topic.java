@@ -43,6 +43,9 @@ public class Topic {
     @Column(name = "chat_id", nullable = false)
     private String chatId;
 
+    @Column(name = "full_mode", nullable = false)
+    private Boolean fullMode;
+
     // 创建时间
     @Column(name = "create_time", nullable = false)
     private LocalDateTime createTime;

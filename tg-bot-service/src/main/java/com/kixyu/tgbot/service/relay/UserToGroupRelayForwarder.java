@@ -14,6 +14,7 @@ import com.pengrad.telegrambot.model.request.InputMedia;
 import com.pengrad.telegrambot.model.request.ReplyParameters;
 import com.pengrad.telegrambot.request.CopyMessage;
 import com.pengrad.telegrambot.request.SendMediaGroup;
+import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.MessageIdResponse;
 import com.pengrad.telegrambot.response.MessagesResponse;
 import lombok.RequiredArgsConstructor;
@@ -102,6 +103,22 @@ public class UserToGroupRelayForwarder {
             }
         }
 
+        ContentType contentType = telegramMessageMediaMapper.inferContentType(privateMessage);
+        if (!Boolean.TRUE.equals(topic.getFullMode()) && contentType != ContentType.TEXT) {
+            log.info("检测到话题未开启全模式，丢弃非文本消息，userId={}, topicId={}, contentType={}",
+                    user.id(), topic.getTopicId(), contentType);
+            Long privateChatId = privateMessage.chat().id();
+            if (privateChatId != null) {
+                String text = "提示：当前仅支持转发纯文本消息，这条非文本消息不会被转发给主人。如需转发图片、视频等，请联系主人开启全消息模式。";
+                try {
+                    telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+                } catch (RuntimeException e) {
+                    log.warn("发送非文本消息未转发提示失败，userId={}, chatId={}", user.id(), privateChatId, e);
+                }
+            }
+            return;
+        }
+
         CopyMessage copyMessage = new CopyMessage(groupId, privateMessage.chat().id(), privateMessage.messageId())
                 .messageThreadId(topic.getTopicId());
 
@@ -134,7 +151,6 @@ public class UserToGroupRelayForwarder {
             }
         }
 
-        ContentType contentType = telegramMessageMediaMapper.inferContentType(privateMessage);
         Long originalMessageId = privateMessage.messageId() == null ? null : privateMessage.messageId().longValue();
         Long forwardedMessageId = copied.messageId() == null ? null : copied.messageId().longValue();
         if (originalMessageId == null || forwardedMessageId == null) {
@@ -224,6 +240,21 @@ public class UserToGroupRelayForwarder {
             if (topic == null || topic.getTopicId() == null || topic.getTopicId() > Integer.MAX_VALUE) {
                 return;
             }
+        }
+
+        if (!Boolean.TRUE.equals(topic.getFullMode())) {
+            log.info("检测到话题未开启全模式，丢弃媒体组消息，userId={}, topicId={}, mediaGroupId={}",
+                    user.id(), topic.getTopicId(), context.mediaGroupId());
+            Long privateChatId = context.privateChatId();
+            if (privateChatId != null) {
+                String text = "提示：当前仅支持转发纯文本消息，该媒体组中的消息不会被转发给主人。如需转发图片、视频等，请联系主人开启全消息模式。";
+                try {
+                    telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+                } catch (RuntimeException e) {
+                    log.warn("发送媒体组未转发提示失败，userId={}, chatId={}, mediaGroupId={}", user.id(), privateChatId, context.mediaGroupId(), e);
+                }
+            }
+            return;
         }
 
         MediaGroupRelaySupport.CollectedMediaGroup collected = MediaGroupRelaySupport.collectMedias(

@@ -125,6 +125,7 @@ public class TopicServiceImpl implements TopicService {
                 .topicId(topicId)
                 .topicName(topicName)
                 .chatId(chatId)
+                .fullMode(false)
                 .build();
                 
         return saveTopic(topic);

@@ -16,8 +16,10 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
+import com.pengrad.telegrambot.request.DeleteMessage;
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.response.SendResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +60,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
             return;
         }
         if (data.startsWith(CALLBACK_PREFIX)) {
-            answer(callbackQuery, "功能已停用");
+            answer(callbackQuery, "⚙️ 该功能已停用啦～");
             return;
         }
         answer(callbackQuery, null);
@@ -91,7 +93,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
     private boolean isNotOwnerOperator(CallbackQuery callbackQuery) {
         Long ownerId = telegramBotProperties.getOwnerId();
         if (ownerId != null && (callbackQuery.from() == null || !ownerId.equals(callbackQuery.from().id()))) {
-            answer(callbackQuery, "只有主人可以操作");
+            answer(callbackQuery, "🛡️ 只有主人可以操作这个按钮～");
             return true;
         }
         return false;
@@ -111,7 +113,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
     private CallbackAction parseCallbackAction(CallbackQuery callbackQuery, String data, String invalidIdMessage) {
         String[] parts = data.split(":");
         if (parts.length != 3) {
-            answer(callbackQuery, "无效的回调数据");
+            answer(callbackQuery, "⚠️ 回调数据格式不对，操作失败了～");
             return null;
         }
         String action = parts[1];
@@ -135,7 +137,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         if (isNotOwnerOperator(callbackQuery)) {
             return;
         }
-        CallbackAction callbackAction = parseCallbackAction(callbackQuery, data, "无效的用户ID");
+        CallbackAction callbackAction = parseCallbackAction(callbackQuery, data, "⚠️ 用户 ID 看起来不太对呢～");
         if (callbackAction == null) {
             return;
         }
@@ -167,6 +169,18 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         Long chatId = message.chat().id();
         Integer messageId = message.messageId();
 
+        String text = message.text();
+        if ("unblock".equals(action)
+                && text != null
+                && text.contains("🧾 请选择要取消拉黑的用户")) {
+            try {
+                telegramApiClient.execute(new DeleteMessage(chatId, messageId));
+            } catch (RuntimeException e) {
+                log.warn("删除已拉黑用户列表消息失败，chatId={}, messageId={}", chatId, messageId, e);
+            }
+            return;
+        }
+
         Long groupId = telegramBotProperties.getGroupId();
         Long threadId = message.messageThreadId();
         if (groupId == null || threadId == null || !groupId.equals(chatId)) {
@@ -195,19 +209,20 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         Long chatId = message.chat().id();
         Long configuredGroupId = telegramBotProperties.getGroupId();
         if (configuredGroupId != null && !configuredGroupId.equals(chatId)) {
-            answer(callbackQuery, "只能在配置的群组中操作");
+            answer(callbackQuery, "🏠 只能在指定的配置群组里操作这条按钮哦～");
             return;
         }
 
         java.util.List<User> blockedUsers = userService.listBlocked();
         if (blockedUsers == null || blockedUsers.isEmpty()) {
             try {
-                SendMessage req = new SendMessage(chatId.longValue(), "当前没有已拉黑的用户。");
+                SendMessage req = new SendMessage(chatId.longValue(), "✅ 当前没有已拉黑的用户，列表是空的～");
                 Long threadId = message.messageThreadId();
                 if (threadId != null) {
                     req.messageThreadId(threadId);
                 }
-                telegramApiClient.execute(req);
+                SendResponse response = telegramApiClient.execute(req);
+                telegramApiClient.scheduleDeleteIfOk(chatId, response, 30_000L);
             } catch (RuntimeException e) {
                 log.warn("发送“当前没有已拉黑的用户”提示失败，chatId={}", chatId, e);
             }
@@ -239,7 +254,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         }
 
         try {
-            SendMessage req = new SendMessage(chatId.longValue(), "选择要取消拉黑的用户：").replyMarkup(keyboard);
+            SendMessage req = new SendMessage(chatId.longValue(), "🧾 请选择要取消拉黑的用户：").replyMarkup(keyboard);
             Long threadId = message.messageThreadId();
             if (threadId != null) {
                 req.messageThreadId(threadId);
@@ -268,7 +283,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         Long topicId = callbackAction.id();
         Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
         if (topic == null) {
-            answer(callbackQuery, "话题不存在或已被删除");
+            answer(callbackQuery, "🧵 当前话题不存在或已被删除啦～");
             return;
         }
         Object rawMessage = callbackQuery.maybeInaccessibleMessage();
@@ -279,7 +294,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         }
         Long groupId = telegramBotProperties.getGroupId();
         if (groupId != null && !groupId.equals(message.chat().id())) {
-            answer(callbackQuery, "只能在配置的群组中操作");
+            answer(callbackQuery, "🏠 只能在指定的配置群组里操作这条按钮哦～");
             return;
         }
         boolean fullMode;
@@ -287,25 +302,25 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
             topic.setFullMode(true);
             topicService.saveTopic(topic);
             fullMode = true;
-            answer(callbackQuery, "已切换为全消息转发模式");
+            answer(callbackQuery, "✅ 已切换为「全消息模式」\n\n📸 图片、视频等都会被转发给主人～");
         } else if ("text".equals(action)) {
             topic.setFullMode(false);
             topicService.saveTopic(topic);
             fullMode = false;
-            answer(callbackQuery, "已切换为仅文本模式");
+            answer(callbackQuery, "✅ 已切换为「文字模式」\n\n✉️ 只有纯文本消息会被转发给主人～");
         } else {
-            answer(callbackQuery, "未知操作");
+            answer(callbackQuery, "❓ 未知操作，请重新试试～");
             return;
         }
 
         Long targetUserId = topic.getUserId();
         if (targetUserId != null) {
             String notifyText = fullMode
-                    ? "提示：主人已将你的消息转发模式设置为“全消息模式”，你发送的图片、视频等也会被转发给主人。"
-                    : "提示：主人已将你的消息转发模式设置为“文字模式”，只有纯文本消息会被转发给主人，图片、视频等将不会被转发。";
+                    ? "🔁 转发模式已更新\n\n当前模式：📸 全消息模式\n说明：你发送的图片、视频等也会被转发给主人～"
+                    : "🔁 转发模式已更新\n\n当前模式：✉️ 文字模式\n说明：只有纯文本消息会被转发给主人，图片、视频等将不会被转发～";
             try {
-                SendMessage request = new SendMessage(targetUserId.longValue(), notifyText);
-                telegramApiClient.execute(request);
+                SendResponse response = telegramApiClient.execute(new SendMessage(targetUserId.longValue(), notifyText));
+                telegramApiClient.scheduleDeleteIfOk(targetUserId, response, 30_000L);
             } catch (RuntimeException e) {
                 log.warn("发送转发模式变更提示给用户失败，topicId={}, userId={}", topic.getTopicId(), targetUserId, e);
             }
@@ -327,11 +342,11 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         if (userId == null) {
             return;
         }
-        try {
-            String text = "提示：你的消息已被主人设置为不再转发。";
-            SendMessage request = new SendMessage(userId.longValue(), text);
-            telegramApiClient.execute(request);
-        } catch (RuntimeException e) {
+            try {
+                String text = "🚫 转发状态\n\n当前状态：你的消息「不会再被转发给主人」。";
+                SendResponse response = telegramApiClient.execute(new SendMessage(userId.longValue(), text));
+                telegramApiClient.scheduleDeleteIfOk(userId, response, 30_000L);
+            } catch (RuntimeException e) {
             log.warn("发送拉黑提示给用户失败，userId={}", userId, e);
         }
     }
@@ -345,11 +360,11 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         if (userId == null) {
             return;
         }
-        try {
-            String text = "提示：主人已取消对你的拉黑，你的消息将再次被转发。";
-            SendMessage request = new SendMessage(userId.longValue(), text);
-            telegramApiClient.execute(request);
-        } catch (RuntimeException e) {
+            try {
+                String text = "✅ 转发状态\n\n当前状态：你的消息「会再次被转发给主人啦～」。";
+                SendResponse response = telegramApiClient.execute(new SendMessage(userId.longValue(), text));
+                telegramApiClient.scheduleDeleteIfOk(userId, response, 30_000L);
+            } catch (RuntimeException e) {
             log.warn("发送取消拉黑提示给用户失败，userId={}", userId, e);
         }
     }

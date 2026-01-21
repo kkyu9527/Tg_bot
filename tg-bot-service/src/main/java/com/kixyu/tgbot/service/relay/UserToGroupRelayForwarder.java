@@ -17,6 +17,7 @@ import com.pengrad.telegrambot.request.SendMediaGroup;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.MessageIdResponse;
 import com.pengrad.telegrambot.response.MessagesResponse;
+import com.pengrad.telegrambot.response.SendResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -109,9 +110,10 @@ public class UserToGroupRelayForwarder {
                     user.id(), topic.getTopicId(), contentType);
             Long privateChatId = privateMessage.chat().id();
             if (privateChatId != null) {
-                String text = "提示：当前仅支持转发纯文本消息，这条非文本消息不会被转发给主人。如需转发图片、视频等，请联系主人开启全消息模式。";
+                String text = "💬 小提示\n\n当前仅支持转发「纯文本消息」。\n这条非文本消息不会被转发给主人。\n\n如需转发图片、视频等，请联系主人开启「全消息模式」～";
                 try {
-                    telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+                    SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+                    telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
                 } catch (RuntimeException e) {
                     log.warn("发送非文本消息未转发提示失败，userId={}, chatId={}", user.id(), privateChatId, e);
                 }
@@ -247,9 +249,10 @@ public class UserToGroupRelayForwarder {
                     user.id(), topic.getTopicId(), context.mediaGroupId());
             Long privateChatId = context.privateChatId();
             if (privateChatId != null) {
-                String text = "提示：当前仅支持转发纯文本消息，该媒体组中的消息不会被转发给主人。如需转发图片、视频等，请联系主人开启全消息模式。";
+                String text = "💬 小提示\n\n当前仅支持转发「纯文本消息」。\n该媒体组中的消息不会被转发给主人。\n\n如需转发图片、视频等，请联系主人开启「全消息模式」～";
                 try {
-                    telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+                    SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+                    telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
                 } catch (RuntimeException e) {
                     log.warn("发送媒体组未转发提示失败，userId={}, chatId={}, mediaGroupId={}", user.id(), privateChatId, context.mediaGroupId(), e);
                 }

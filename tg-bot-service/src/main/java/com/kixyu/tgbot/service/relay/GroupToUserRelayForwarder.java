@@ -15,6 +15,7 @@ import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.BaseResponse;
 import com.pengrad.telegrambot.response.MessageIdResponse;
 import com.pengrad.telegrambot.response.MessagesResponse;
+import com.pengrad.telegrambot.response.SendResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -270,13 +271,13 @@ public class GroupToUserRelayForwarder {
             return;
         }
         try {
-            String text = "提示：无法给该用户发送消息，可能已拉黑机器人或账号不可用（userId=" + userId + "）。";
-            SendMessage request = new SendMessage(groupId.longValue(), text)
-                    .messageThreadId(threadId.intValue());
-            telegramApiClient.execute(request);
+            String text = "🚫 提示\n\n无法给该用户发送消息，可能已拉黑机器人或账号不可用。\nuserId = " + userId + "。";
+            SendResponse response = telegramApiClient.execute(
+                    new SendMessage(groupId.longValue(), text).messageThreadId(threadId.intValue())
+            );
+            telegramApiClient.scheduleDeleteIfOk(groupId, response, 30_000L);
         } catch (RuntimeException e) {
             log.warn("发送“用户可能拉黑机器人”提示失败，groupId={}, threadId={}, userId={}", groupId, threadId, userId, e);
         }
     }
-
 }

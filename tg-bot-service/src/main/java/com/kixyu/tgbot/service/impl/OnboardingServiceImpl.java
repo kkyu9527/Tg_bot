@@ -66,7 +66,7 @@ public class OnboardingServiceImpl implements OnboardingService {
             case "chatid" -> handleChatIdCommand(updateId, message, chat);
             case "close_topic" -> handleCloseTopicCommand(updateId, message, chat);
             case "delete" -> handleDeleteCommand(updateId, message, chat);
-            case "unblock" -> handleUnblockCommand(updateId, message, chat);
+            case "block" -> handleBlockCommand(updateId, message, chat);
             case "full_mode" -> handleFullModeCommand(updateId, message, chat);
             default -> {
             }
@@ -156,13 +156,13 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     /**
-     * 处理 /unblock 命令，列出或取消拉黑用户。
+     * 处理 /block 命令，列出或取消拉黑用户。
      *
      * @param updateId 更新 ID
      * @param message  消息实体
      * @param chat     聊天实体
      */
-    private void handleUnblockCommand(Integer updateId, Message message, Chat chat) {
+    private void handleBlockCommand(Integer updateId, Message message, Chat chat) {
         if (onboardingCommonService.isInvalidGroupOwnerCommand(message, chat)) {
             return;
         }
@@ -172,13 +172,46 @@ public class OnboardingServiceImpl implements OnboardingService {
         String text = message.text().trim();
         String[] parts = text.split("\\s+");
         if (parts.length < 2) {
+            Long groupId = telegramBotProperties.getGroupId();
+            Long threadId = message.messageThreadId();
             Long chatId = chat.id();
+            if (groupId != null && threadId != null && groupId.equals(chatId)) {
+                String groupChatId = String.valueOf(groupId);
+                Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
+                if (topic != null && groupChatId.equals(topic.getChatId()) && topic.getUserId() != null) {
+                    Long targetUserId = topic.getUserId();
+                    boolean blocked = userService.isBlocked(targetUserId);
+                    StringBuilder prompt = new StringBuilder();
+                    prompt.append("请选择是否拉黑该用户：\n");
+                    prompt.append("userId = ").append(targetUserId);
+
+                    String buttonText = blocked ? "取消拉黑此用户" : "拉黑此用户";
+                    String action = blocked ? "unblock" : "block";
+                    String callbackData = "bl:" + action + ":" + targetUserId;
+                    InlineKeyboardButton button = new InlineKeyboardButton(buttonText).callbackData(callbackData);
+                    InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(button);
+                    try {
+                        telegramApiClient.execute(
+                                new SendMessage(chatId.longValue(), prompt.toString())
+                                        .messageThreadId(threadId)
+                                        .replyMarkup(keyboard)
+                        );
+                        log.info("已发送话题用户拉黑选择消息，updateId={}, groupChatId={}, threadId={}, userId={}",
+                                updateId, groupChatId, threadId, targetUserId);
+                    } catch (RuntimeException e) {
+                        log.warn("发送话题用户拉黑选择消息失败，updateId={}, groupChatId={}, threadId={}, userId={}",
+                                updateId, groupChatId, threadId, targetUserId, e);
+                    }
+                    return;
+                }
+            }
+
             java.util.List<com.kixyu.tgbot.domain.entity.User> blockedUsers = userService.listBlocked();
             if (blockedUsers == null || blockedUsers.isEmpty()) {
                 try {
-                    onboardingCommonService.sendText(chatId, "当前没有已拉黑的用户。");
+                    onboardingCommonService.sendText(chat.id(), "当前没有已拉黑的用户。");
                 } catch (RuntimeException e) {
-                    log.warn("发送“当前没有已拉黑的用户”提示失败，updateId={}, chatId={}", updateId, chatId, e);
+                    log.warn("发送“当前没有已拉黑的用户”提示失败，updateId={}, chatId={}", updateId, chat.id(), e);
                 }
                 return;
             }
@@ -208,10 +241,10 @@ public class OnboardingServiceImpl implements OnboardingService {
             }
             try {
                 telegramApiClient.execute(
-                        new SendMessage(chatId.longValue(), "选择要取消拉黑的用户：").replyMarkup(keyboard)
+                        new SendMessage(chat.id().longValue(), "选择要取消拉黑的用户：").replyMarkup(keyboard)
                 );
             } catch (RuntimeException e) {
-                log.warn("发送已拉黑用户列表失败，updateId={}, chatId={}", updateId, chatId, e);
+                log.warn("发送已拉黑用户列表失败，updateId={}, chatId={}", updateId, chat.id(), e);
             }
             return;
         }
@@ -223,7 +256,7 @@ public class OnboardingServiceImpl implements OnboardingService {
             try {
                 onboardingCommonService.sendText(chatId, "无效的 userId：" + parts[1]);
             } catch (RuntimeException ex) {
-                log.warn("发送 /unblock 参数错误提示失败，updateId={}, chatId={}", updateId, chatId, ex);
+                log.warn("发送 /block 参数错误提示失败，updateId={}, chatId={}", updateId, chatId, ex);
             }
             return;
         }
@@ -244,11 +277,11 @@ public class OnboardingServiceImpl implements OnboardingService {
             }
         } catch (RuntimeException e) {
             Long chatId = chat.id();
-            log.warn("处理 /unblock 失败，updateId={}, userId={}", updateId, targetUserId, e);
+            log.warn("处理 /block 失败，updateId={}, userId={}", updateId, targetUserId, e);
             try {
                 onboardingCommonService.sendText(chatId, "取消拉黑失败：" + e.getMessage());
             } catch (RuntimeException ex) {
-                log.warn("发送 /unblock 失败提示消息失败，updateId={}, chatId={}", updateId, chatId, ex);
+                log.warn("发送 /block 失败提示消息失败，updateId={}, chatId={}", updateId, chatId, ex);
             }
         }
     }

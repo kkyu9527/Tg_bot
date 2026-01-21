@@ -1,8 +1,10 @@
 package com.kixyu.tgbot.service.impl;
 
 import com.kixyu.tgbot.config.TelegramBotProperties;
+import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.domain.entity.User;
 import com.kixyu.tgbot.service.CallbackQueryService;
+import com.kixyu.tgbot.service.TopicService;
 import com.kixyu.tgbot.service.UserService;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import lombok.RequiredArgsConstructor;
@@ -24,10 +26,12 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
 
     private static final String CALLBACK_PREFIX = "m:";
     private static final String BLOCK_CALLBACK_PREFIX = "bl:";
+    private static final String MODE_CALLBACK_PREFIX = "md:";
 
     private final TelegramApiClient telegramApiClient;
     private final TelegramBotProperties telegramBotProperties;
     private final UserService userService;
+    private final TopicService topicService;
 
     /**
      * 处理 Telegram 的回调查询事件。
@@ -46,6 +50,10 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         }
         if (data.startsWith(BLOCK_CALLBACK_PREFIX)) {
             handleBlockCallback(callbackQuery, data);
+            return;
+        }
+        if (data.startsWith(MODE_CALLBACK_PREFIX)) {
+            handleModeCallback(callbackQuery, data);
             return;
         }
         if (data.startsWith(CALLBACK_PREFIX)) {
@@ -73,30 +81,65 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
     }
 
     /**
-     * 处理拉黑或取消拉黑用户的回调查询。
+     * 检查回调查询是否来自非主人用户。
+     * 如果是，会发送提示并返回 true；否则返回 false。
      *
      * @param callbackQuery 回调查询对象
-     * @param data          包含操作类型和目标用户ID的回调数据
+     * @return 如果不是主人用户则返回 true，否则返回 false
      */
-    private void handleBlockCallback(CallbackQuery callbackQuery, String data) {
+    private boolean isNotOwnerOperator(CallbackQuery callbackQuery) {
         Long ownerId = telegramBotProperties.getOwnerId();
         if (ownerId != null && (callbackQuery.from() == null || !ownerId.equals(callbackQuery.from().id()))) {
             answer(callbackQuery, "只有主人可以操作");
-            return;
+            return true;
         }
+        return false;
+    }
+
+    private record CallbackAction(String action, long id) {
+    }
+
+    /**
+     * 解析回调查询数据。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param data          回调查询数据
+     * @param invalidIdMessage 如果无效的用户ID，则返回的提示文本
+     * @return 解析后的 CallbackAction 对象，如果解析失败则返回 null
+     */
+    private CallbackAction parseCallbackAction(CallbackQuery callbackQuery, String data, String invalidIdMessage) {
         String[] parts = data.split(":");
         if (parts.length != 3) {
             answer(callbackQuery, "无效的回调数据");
-            return;
+            return null;
         }
         String action = parts[1];
-        Long targetUserId;
+        long id;
         try {
-            targetUserId = Long.parseLong(parts[2]);
+            id = Long.parseLong(parts[2]);
         } catch (NumberFormatException e) {
-            answer(callbackQuery, "无效的用户ID");
+            answer(callbackQuery, invalidIdMessage);
+            return null;
+        }
+        return new CallbackAction(action, id);
+    }
+
+    /**
+     * 处理拉黑回调。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param data          回调查询数据
+     */
+    private void handleBlockCallback(CallbackQuery callbackQuery, String data) {
+        if (isNotOwnerOperator(callbackQuery)) {
             return;
         }
+        CallbackAction callbackAction = parseCallbackAction(callbackQuery, data, "无效的用户ID");
+        if (callbackAction == null) {
+            return;
+        }
+        String action = callbackAction.action();
+        Long targetUserId = callbackAction.id();
         boolean blocked;
         if ("block".equals(action)) {
             User user = userService.block(targetUserId);
@@ -134,6 +177,73 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
         telegramApiClient.execute(edit);
     }
+    
+    /**
+     * 处理消息转发模式回调。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param data          回调查询数据
+     */
+    private void handleModeCallback(CallbackQuery callbackQuery, String data) {
+        if (isNotOwnerOperator(callbackQuery)) {
+            return;
+        }
+        CallbackAction callbackAction = parseCallbackAction(callbackQuery, data, "无效的话题ID");
+        if (callbackAction == null) {
+            return;
+        }
+        String action = callbackAction.action();
+        Long topicId = callbackAction.id();
+        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
+        if (topic == null) {
+            answer(callbackQuery, "话题不存在或已被删除");
+            return;
+        }
+        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
+        Message message = rawMessage instanceof Message m ? m : null;
+        if (message == null || message.chat() == null || message.messageId() == null) {
+            answer(callbackQuery, null);
+            return;
+        }
+        Long groupId = telegramBotProperties.getGroupId();
+        if (groupId != null && !groupId.equals(message.chat().id())) {
+            answer(callbackQuery, "只能在配置的群组中操作");
+            return;
+        }
+        boolean fullMode;
+        if ("full".equals(action)) {
+            topic.setFullMode(true);
+            topicService.saveTopic(topic);
+            fullMode = true;
+            answer(callbackQuery, "已切换为全消息转发模式");
+        } else if ("text".equals(action)) {
+            topic.setFullMode(false);
+            topicService.saveTopic(topic);
+            fullMode = false;
+            answer(callbackQuery, "已切换为仅文本模式");
+        } else {
+            answer(callbackQuery, "未知操作");
+            return;
+        }
+
+        Long targetUserId = topic.getUserId();
+        if (targetUserId != null) {
+            String notifyText = fullMode
+                    ? "提示：主人已将你的消息转发模式设置为“全消息模式”，你发送的图片、视频等也会被转发给主人。"
+                    : "提示：主人已将你的消息转发模式设置为“文字模式”，只有纯文本消息会被转发给主人，图片、视频等将不会被转发。";
+            try {
+                SendMessage request = new SendMessage(targetUserId.longValue(), notifyText);
+                telegramApiClient.execute(request);
+            } catch (RuntimeException e) {
+                log.warn("发送转发模式变更提示给用户失败，topicId={}, userId={}", topic.getTopicId(), targetUserId, e);
+            }
+        }
+        Long chatId = message.chat().id();
+        Integer messageId = message.messageId();
+        InlineKeyboardMarkup markup = buildModeInlineKeyboard(topicId, fullMode);
+        EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
+        telegramApiClient.execute(edit);
+    }
 
     /**
      * 构建拉黑或取消拉黑用户的内联键盘。
@@ -149,6 +259,18 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         InlineKeyboardButton button = new InlineKeyboardButton(text).callbackData(callbackData);
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         markup.addRow(button);
+        return markup;
+    }
+
+    private InlineKeyboardMarkup buildModeInlineKeyboard(Long topicId, boolean fullMode) {
+        String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
+        String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
+        InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
+                .callbackData(MODE_CALLBACK_PREFIX + "text:" + topicId);
+        InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
+                .callbackData(MODE_CALLBACK_PREFIX + "full:" + topicId);
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        markup.addRow(textOnlyButton, fullModeButton);
         return markup;
     }
 

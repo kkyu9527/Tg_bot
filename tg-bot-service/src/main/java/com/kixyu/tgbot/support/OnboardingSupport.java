@@ -94,7 +94,8 @@ public class OnboardingSupport {
         String text =
                 "你好，" + displayName + "！\n" +
                         "你的用户ID是：" + user.id() + "\n\n" +
-                        "你现在可以直接给我发消息，我会帮你转发给主人。";
+                        "你现在可以直接给我发消息，我会帮你转发给主人。\n\n" +
+                        "当前默认仅支持转发纯文本消息，如需转发图片、视频等，请联系主人开启全模式。";
         try {
             userService.saveOrUpdateUserInfo(
                     user.id(),
@@ -221,14 +222,35 @@ public class OnboardingSupport {
         }
     }
 
-    private InlineKeyboardMarkup buildBlockInlineKeyboard(Long userId) {
+    private InlineKeyboardMarkup buildBlockInlineKeyboard(Long userId, Long topicId, String groupChatId) {
         boolean blocked = userService.isBlocked(userId);
-        String text = blocked ? "取消拉黑" : "拉黑此用户";
-        String action = blocked ? "unblock" : "block";
-        String data = "bl:" + action + ":" + userId;
-        InlineKeyboardButton button = new InlineKeyboardButton(text).callbackData(data);
+        String blockText = blocked ? "取消拉黑" : "拉黑此用户";
+        String blockAction = blocked ? "unblock" : "block";
+        String blockData = "bl:" + blockAction + ":" + userId;
+        InlineKeyboardButton blockButton = new InlineKeyboardButton(blockText).callbackData(blockData);
+
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        markup.addRow(button);
+        markup.addRow(blockButton);
+
+        if (topicId == null) {
+            return markup;
+        }
+
+        Topic topic = topicService.getTopicByTopicId(topicId).orElse(null);
+        if (topic == null || topic.getChatId() == null || groupChatId == null || !groupChatId.equals(topic.getChatId())) {
+            return markup;
+        }
+
+        boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
+        String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
+        String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
+
+        InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
+                .callbackData("md:text:" + topicId);
+        InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
+                .callbackData("md:full:" + topicId);
+
+        markup.addRow(textOnlyButton, fullModeButton);
         return markup;
     }
 
@@ -248,7 +270,7 @@ public class OnboardingSupport {
         }
 
         byte[] avatarBytes = downloadUserAvatarBytes(user.id());
-        InlineKeyboardMarkup markup = buildBlockInlineKeyboard(user.id());
+        InlineKeyboardMarkup markup = buildBlockInlineKeyboard(user.id(), messageThreadId, groupChatId);
         if (avatarBytes != null && avatarBytes.length > 0) {
             try {
                 SendResponse response = telegramApiClient.execute(

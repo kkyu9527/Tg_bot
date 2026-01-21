@@ -13,6 +13,8 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.DeleteMessage;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
+import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.response.SendResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +67,7 @@ public class OnboardingServiceImpl implements OnboardingService {
             case "close_topic" -> handleCloseTopicCommand(updateId, message, chat);
             case "delete" -> handleDeleteCommand(updateId, message, chat);
             case "unblock" -> handleUnblockCommand(updateId, message, chat);
+            case "full_mode" -> handleFullModeCommand(updateId, message, chat);
             default -> {
             }
         }
@@ -345,7 +348,55 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
         String groupChatId = String.valueOf(groupId);
         topicService.getTopicByTopicId(threadId)
-                .filter(t -> groupChatId.equals(t.getChatId())).ifPresent(topic -> onboardingCommonService.deleteTopicMessagesAndMapping(updateId, topic));
+                .filter(t -> groupChatId.equals(t.getChatId()))
+                .ifPresent(topic -> onboardingCommonService.deleteTopicMessagesAndMapping(updateId, topic));
+    }
+
+    /**
+     * 处理 /fullmode 命令，为当前话题开启全消息转发模式。
+     *
+     * @param updateId 更新 ID
+     * @param message  命令消息
+     * @param chat     命令所在聊天
+     */
+    private void handleFullModeCommand(Integer updateId, Message message, Chat chat) {
+        if (onboardingCommonService.isInvalidGroupOwnerCommand(message, chat)) {
+            return;
+        }
+        Long groupId = telegramBotProperties.getGroupId();
+        Long threadId = message.messageThreadId();
+        if (groupId == null || threadId == null) {
+            return;
+        }
+        String groupChatId = String.valueOf(groupId);
+        Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
+        if (topic == null || !groupChatId.equals(topic.getChatId())) {
+            return;
+        }
+        Long chatId = chat.id();
+        if (chatId == null) {
+            return;
+        }
+        boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
+        String text = "请选择该用户的转发模式：";
+        String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
+        String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
+        InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
+                .callbackData("md:text:" + topic.getTopicId());
+        InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
+                .callbackData("md:full:" + topic.getTopicId());
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(textOnlyButton, fullModeButton);
+        try {
+            telegramApiClient.execute(
+                    new SendMessage(chatId.longValue(), text)
+                            .messageThreadId(threadId)
+                            .replyMarkup(keyboard)
+            );
+            log.info("已发送转发模式选择消息，updateId={}, groupChatId={}, threadId={}, userId={}",
+                    updateId, groupChatId, threadId, topic.getUserId());
+        } catch (RuntimeException e) {
+            log.warn("发送转发模式选择消息失败，updateId={}, groupChatId={}, threadId={}", updateId, groupChatId, threadId, e);
+        }
     }
 
     /**

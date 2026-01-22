@@ -46,6 +46,9 @@ public class Topic {
     @Column(name = "full_mode", nullable = false)
     private Boolean fullMode;
 
+    @Column(name = "welcome_message_id")
+    private Long welcomeMessageId;
+
     // 创建时间
     @Column(name = "create_time", nullable = false)
     private LocalDateTime createTime;

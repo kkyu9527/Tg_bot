@@ -188,6 +188,10 @@ public class OnboardingSupport {
         String caption = buildNewUserCaption(user);
         Message sentMessage = sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
         if (sentMessage != null && sentMessage.messageId() != null) {
+            topicService.getTopicByTopicId(threadId).ifPresent(topic -> {
+                topic.setWelcomeMessageId(sentMessage.messageId().longValue());
+                topicService.saveTopic(topic);
+            });
             pinMessage(groupChatId, sentMessage.messageId());
         }
         log.info("重建话题并更新映射完成，userId={}, groupChatId={}, threadId={}, pinnedMessageId={}",

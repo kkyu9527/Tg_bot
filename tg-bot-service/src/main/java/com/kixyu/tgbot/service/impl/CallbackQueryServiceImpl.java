@@ -74,6 +74,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         AnswerCallbackQuery req = new AnswerCallbackQuery(callbackQuery.id());
         if (text != null && !text.isBlank()) {
             req.text(text);
+            req.showAlert(true);
         }
         telegramApiClient.execute(req);
     }
@@ -165,29 +166,52 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         Integer messageId = message.messageId();
 
         String text = message.text();
-        if ("unblock".equals(action)
+        boolean unblockFromList = "unblock".equals(action)
                 && text != null
-                && text.contains("🧾 请选择要取消拉黑的用户")) {
+                && text.contains("🧾 请选择要取消拉黑的用户");
+        Long groupId = telegramBotProperties.getGroupId();
+        Long threadId = message.messageThreadId();
+        if (groupId == null || threadId == null || !groupId.equals(chatId)) {
+            if (unblockFromList) {
+                try {
+                    telegramApiClient.execute(new DeleteMessage(chatId, messageId));
+                } catch (RuntimeException e) {
+                    log.warn("删除已拉黑用户列表消息失败，chatId={}, messageId={}", chatId, messageId, e);
+                }
+            }
+            return;
+        }
+        Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
+        if (topic == null || !String.valueOf(groupId).equals(topic.getChatId())) {
+            if (unblockFromList) {
+                try {
+                    telegramApiClient.execute(new DeleteMessage(chatId, messageId));
+                } catch (RuntimeException e) {
+                    log.warn("删除已拉黑用户列表消息失败，chatId={}, messageId={}", chatId, messageId, e);
+                }
+            }
+            return;
+        }
+        InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
+        Long welcomeMessageId = topic.getWelcomeMessageId();
+        if (welcomeMessageId != null && welcomeMessageId <= Integer.MAX_VALUE) {
+            try {
+                EditMessageReplyMarkup editWelcome = new EditMessageReplyMarkup(chatId, welcomeMessageId.intValue()).replyMarkup(markup);
+                telegramApiClient.execute(editWelcome);
+            } catch (RuntimeException e) {
+                log.warn("更新新用户卡片拉黑按钮状态失败，chatId={}, messageId={}", chatId, welcomeMessageId, e);
+            }
+        }
+        if (!unblockFromList) {
+            EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
+            telegramApiClient.execute(edit);
+        } else {
             try {
                 telegramApiClient.execute(new DeleteMessage(chatId, messageId));
             } catch (RuntimeException e) {
                 log.warn("删除已拉黑用户列表消息失败，chatId={}, messageId={}", chatId, messageId, e);
             }
-            return;
         }
-
-        Long groupId = telegramBotProperties.getGroupId();
-        Long threadId = message.messageThreadId();
-        if (groupId == null || threadId == null || !groupId.equals(chatId)) {
-            return;
-        }
-        Topic topic = topicService.getTopicByTopicId(threadId).orElse(null);
-        if (topic == null || !String.valueOf(groupId).equals(topic.getChatId())) {
-            return;
-        }
-        InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
-        EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
-        telegramApiClient.execute(edit);
     }
 
     /**
@@ -210,17 +234,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
 
         java.util.List<User> blockedUsers = userService.listBlocked();
         if (blockedUsers == null || blockedUsers.isEmpty()) {
-            try {
-                SendMessage req = new SendMessage(chatId.longValue(), "✅ 当前没有已拉黑的用户，列表是空的～");
-                Long threadId = message.messageThreadId();
-                if (threadId != null) {
-                    req.messageThreadId(threadId);
-                }
-                SendResponse response = telegramApiClient.execute(req);
-                telegramApiClient.scheduleDeleteIfOk(chatId, response, 30_000L);
-            } catch (RuntimeException e) {
-                log.warn("发送“当前没有已拉黑的用户”提示失败，chatId={}", chatId, e);
-            }
+            answer(callbackQuery, "✅ 当前没有已拉黑的用户，列表是空的～");
             return;
         }
 
@@ -324,6 +338,16 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         Integer messageId = message.messageId();
 
         InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
+        Long welcomeMessageId = topic.getWelcomeMessageId();
+        if (welcomeMessageId != null && welcomeMessageId <= Integer.MAX_VALUE) {
+            try {
+                EditMessageReplyMarkup editWelcome =
+                        new EditMessageReplyMarkup(chatId, welcomeMessageId.intValue()).replyMarkup(markup);
+                telegramApiClient.execute(editWelcome);
+            } catch (RuntimeException e) {
+                log.warn("更新新用户卡片消息模式按钮状态失败，chatId={}, messageId={}", chatId, welcomeMessageId, e);
+            }
+        }
         EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
         telegramApiClient.execute(edit);
     }

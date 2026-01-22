@@ -141,6 +141,11 @@ public class OnboardingServiceImpl implements OnboardingService {
                 log.warn("发送新用户提示消息失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId);
                 return;
             }
+            onboardingSupport.getTopicByUserIdAndChatId(user.id(), groupChatId)
+                    .ifPresent(topic -> {
+                        topic.setWelcomeMessageId(sentMessage.messageId().longValue());
+                        topicService.saveTopic(topic);
+                    });
             log.info("已发送新用户提示消息，userId={}, groupChatId={}, threadId={}, messageId={}",
                     user.id(), groupChatId, threadId, sentMessage.messageId());
             onboardingSupport.pinMessage(groupChatId, sentMessage.messageId());
@@ -339,16 +344,22 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
         if (message.replyToMessage() == null || message.replyToMessage().messageId() == null) {
             Long chatId = chat.id();
-            try {
-                SendResponse response = telegramApiClient.execute(
-                        new SendMessage(chatId.longValue(), "⚠️ 小提示\n\n请先「回复」要撤回的那条消息，然后再发送 /delete。\n（⏱️ 30 秒后会自动删除本条提示～）")
-                );
-                telegramApiClient.scheduleDeleteIfOk(chatId, response, 30_000L);
-            } catch (RuntimeException e) {
-                log.warn("提示 /delete 使用方式失败，updateId={}, chatId={}", updateId, chatId, e);
-            }
-            if (message.messageId() != null) {
-                telegramApiClient.scheduleDelete(chatId, message.messageId(), 30_000L);
+            Integer commandMessageId = message.messageId();
+            if (chatId != null) {
+                try {
+                    SendMessage req = new SendMessage(chatId.longValue(), "⚠️ 小提示\n\n请先「回复」要撤回的那条消息，然后再发送 /delete。\n（⏱️ 30 秒后会自动删除本条提示～）");
+                    Long threadId = message.messageThreadId();
+                    if (threadId != null) {
+                        req.messageThreadId(threadId);
+                    }
+                    SendResponse response = telegramApiClient.execute(req);
+                    telegramApiClient.scheduleDeleteIfOk(chatId, response, 30_000L);
+                } catch (RuntimeException e) {
+                    log.warn("提示 /delete 使用方式失败，updateId={}, chatId={}", updateId, chatId, e);
+                }
+                if (commandMessageId != null) {
+                    telegramApiClient.scheduleDelete(chatId, commandMessageId, 0L);
+                }
             }
             return;
         }
@@ -436,6 +447,27 @@ public class OnboardingServiceImpl implements OnboardingService {
         } else if (groupId != null && groupId.equals(chatId)) {
             Long ownerId = telegramBotProperties.getOwnerId();
             if (ownerId != null && !ownerId.equals(message.from().id())) {
+                return;
+            }
+            com.kixyu.tgbot.domain.entity.Message mapping = onboardingCommonService.findMessageMapping(repliedMessageId);
+            Topic topic = onboardingCommonService.findValidTopic(mapping);
+            String groupChatId = String.valueOf(groupId);
+            if (mapping == null || topic == null || !groupChatId.equals(topic.getChatId())) {
+                Long threadId = message.messageThreadId();
+                try {
+                    SendMessage req = new SendMessage(chatId.longValue(), "⚠️ 小提示\n\n请先「回复」要撤回的那条消息，然后再发送 /delete。\n（⏱️ 30 秒后会自动删除本条提示～）");
+                    if (threadId != null) {
+                        req.messageThreadId(threadId);
+                    }
+                    SendResponse response = telegramApiClient.execute(req);
+                    telegramApiClient.scheduleDeleteIfOk(chatId, response, 30_000L);
+                } catch (RuntimeException e) {
+                    log.warn("提示 /delete 使用方式失败，updateId={}, chatId={}", updateId, chatId, e);
+                }
+                Integer commandMessageId = message.messageId();
+                if (commandMessageId != null) {
+                    telegramApiClient.scheduleDelete(chatId, commandMessageId, 0L);
+                }
                 return;
             }
             onboardingCommonService.deletePairedMessagesFromGroup(updateId, chatId, repliedMessageId);

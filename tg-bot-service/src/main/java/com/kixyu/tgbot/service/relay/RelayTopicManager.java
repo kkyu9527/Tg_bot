@@ -81,6 +81,8 @@ public class RelayTopicManager {
             String caption = onboardingSupport.buildNewUserCaption(user);
             Message sentMessage = onboardingSupport.sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
             if (sentMessage != null && sentMessage.messageId() != null) {
+                topic.setWelcomeMessageId(sentMessage.messageId().longValue());
+                topicService.saveTopic(topic);
                 onboardingSupport.pinMessage(groupChatId, sentMessage.messageId());
             }
         } catch (RuntimeException e) {

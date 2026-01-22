@@ -26,7 +26,6 @@ import com.pengrad.telegrambot.response.SendResponse;
 @Slf4j
 public class CallbackQueryServiceImpl implements CallbackQueryService {
 
-    private static final String CALLBACK_PREFIX = "m:";
     private static final String BLOCK_CALLBACK_PREFIX = "bl:";
     private static final String MODE_CALLBACK_PREFIX = "md:";
 
@@ -57,10 +56,6 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         }
         if (data.startsWith(MODE_CALLBACK_PREFIX)) {
             handleModeCallback(callbackQuery, data);
-            return;
-        }
-        if (data.startsWith(CALLBACK_PREFIX)) {
-            answer(callbackQuery, "⚙️ 该功能已停用啦～");
             return;
         }
         answer(callbackQuery, null);

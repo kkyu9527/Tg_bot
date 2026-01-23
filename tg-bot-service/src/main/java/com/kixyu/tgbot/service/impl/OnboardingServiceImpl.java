@@ -372,7 +372,7 @@ public class OnboardingServiceImpl implements OnboardingService {
         if (nowSeconds - repliedDate > 48L * 3600L) {
             Integer commandMessageId = message.messageId();
             if (commandMessageId != null) {
-                telegramApiClient.scheduleDelete(chatId, commandMessageId, 30_000L);
+                telegramApiClient.scheduleDelete(chatId, commandMessageId, 0L);
             }
             new Thread(() -> {
                 Integer hintId = null;
@@ -414,7 +414,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                             || mapping.getMessageType() != com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
                         Integer commandMessageId = message.messageId();
                         if (commandMessageId != null) {
-                            telegramApiClient.scheduleDelete(chatId, commandMessageId, 30_000L);
+                            telegramApiClient.scheduleDelete(chatId, commandMessageId, 0L);
                         }
                         new Thread(() -> {
                             Integer hintId = null;
@@ -474,7 +474,7 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
 
         if (message.messageId() != null) {
-            telegramApiClient.scheduleDelete(chatId, message.messageId(), 30_000L);
+            telegramApiClient.scheduleDelete(chatId, message.messageId(), 0L);
         }
     }
 }

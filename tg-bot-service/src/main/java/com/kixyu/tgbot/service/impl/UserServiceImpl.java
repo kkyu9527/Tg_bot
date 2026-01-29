@@ -105,7 +105,7 @@ public class UserServiceImpl implements UserService {
      * 取消拉黑用户
      *
      * @param userId 用户 ID
-     * @return       如果用户未被拉黑则返回已存在的用户实体，否则返回新创建的用户实体
+     * @return       如果用户存在则返回用户实体；若用户不存在则返回 null
      */
     @Override
     public User unblock(Long userId) {

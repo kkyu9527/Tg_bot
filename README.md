@@ -9,7 +9,7 @@
 - `tg-bot-domain`：领域模型与仓储接口
 - `tg-bot-service`：业务逻辑与 Telegram API 封装
 - `tg-bot-web`：Spring Boot 启动入口、Webhook 控制器、配置等
-- `docker-cpmpose.yml`：示例编排文件（使用已构建好的镜像 `kixyu9527/tg_bot:latest`）
+- `docker-compose.yml`：示例编排文件（使用已构建好的镜像 `kixyu9527/tg_bot:latest`）
 
 ## 构建与运行
 
@@ -63,7 +63,7 @@ docker pull kixyu9527/tg_bot:latest
 
 ## docker-compose 示例
 
-项目根目录已提供一个简单的编排示例 [`docker-cpmpose.yml`](./docker-cpmpose.yml)，核心就是在服务的 `environment` 中加入上述环境变量，例如：
+项目根目录已提供一个简单的编排示例 [`docker-compose.yml`](./docker-compose.yml)，核心就是在服务的 `environment` 中加入上述环境变量，例如：
 
 ```yaml
 services:

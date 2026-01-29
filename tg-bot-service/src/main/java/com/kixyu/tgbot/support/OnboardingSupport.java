@@ -426,8 +426,11 @@ public class OnboardingSupport {
      * @return 解析成功的 Long 值，失败时返回 null
      */
     public Long parseChatIdLong(String groupChatId) {
+        if (groupChatId == null || groupChatId.isBlank()) {
+            return null;
+        }
         try {
-            return Long.parseLong(groupChatId);
+            return Long.parseLong(groupChatId.trim());
         } catch (NumberFormatException e) {
             return null;
         }

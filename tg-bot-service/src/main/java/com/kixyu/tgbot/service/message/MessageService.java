@@ -42,6 +42,11 @@ public interface MessageService {
     List<Message> getMessagesByTopicIdAndSenderId(Long topicId, Long senderId);
 
     /**
+     * 统计指定话题中某个发送者的指定类型消息数量
+     */
+    long countMessagesByTopicIdAndSenderIdAndMessageType(Long topicId, Long senderId, Message.MessageType messageType);
+
+    /**
      * 根据媒体组ID获取消息列表
      */
     List<Message> getMessagesByMediaGroupId(String mediaGroupId);

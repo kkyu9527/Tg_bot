@@ -97,6 +97,19 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
+     * 统计指定话题中某个发送者的指定类型消息数量。
+     *
+     * @param topicId     话题 ID
+     * @param senderId    发送者 ID
+     * @param messageType 消息类型
+     * @return            消息数量
+     */
+    @Override
+    public long countMessagesByTopicIdAndSenderIdAndMessageType(Long topicId, Long senderId, Message.MessageType messageType) {
+        return messageRepository.countByTopicIdAndSenderIdAndMessageType(topicId, senderId, messageType);
+    }
+
+    /**
      * 根据媒体组 ID 查询消息。
      *
      * @param mediaGroupId 媒体组 ID

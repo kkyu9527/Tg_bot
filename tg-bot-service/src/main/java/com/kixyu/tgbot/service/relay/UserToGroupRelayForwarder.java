@@ -4,6 +4,7 @@ import com.kixyu.tgbot.domain.entity.Message.ContentType;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.bot.BotService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
+import com.kixyu.tgbot.service.message.MessageService;
 import com.kixyu.tgbot.service.user.UserService;
 import com.kixyu.tgbot.service.relay.mapper.RelayReplyMapper;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
@@ -28,11 +29,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserToGroupRelayForwarder {
+
+    private static final int LOW_TRUST_MESSAGE_LIMIT = 10;
+    private static final Pattern LINK_PATTERN = Pattern.compile("(?i)\\b(?:https?://|www\\.|t\\.me/|telegram\\.me/|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|net|org|io|me|cn|cc|xyz|top|vip|app|dev|link|shop|site|online|live|info|biz|tv|gg)(?:/\\S*)?)");
+    private static final Pattern USERNAME_MENTION_PATTERN = Pattern.compile("(?<![\\w.])@[A-Za-z0-9_]{5,32}\\b");
 
     private final TelegramApiClient telegramApiClient;
     private final TelegramBotProperties telegramBotProperties;
@@ -41,6 +47,7 @@ public class UserToGroupRelayForwarder {
     private final BotService botService;
     private final RelayReplyMapper relayReplyMapper;
     private final UserService userService;
+    private final MessageService messageService;
 
     private final ScheduledExecutorService mediaGroupScheduler = Executors.newSingleThreadScheduledExecutor();
     private final ConcurrentHashMap<String, MediaGroupRelaySupport.MessageBuffer<MediaGroupContext>> mediaGroupBuffers = new ConcurrentHashMap<>();
@@ -84,11 +91,6 @@ public class UserToGroupRelayForwarder {
         log.info("转发私聊消息到群话题开始，userId={}, privateChatId={}, messageId={}",
                 user.id(), privateMessage.chat().id(), privateMessage.messageId());
 
-        if (allowMediaGroup && privateMessage.mediaGroupId() != null && !privateMessage.mediaGroupId().isBlank()) {
-            enqueueMediaGroupMessage(privateMessage, groupChatId);
-            return;
-        }
-
         Topic topic = relayTopicManager.ensureTopic(user, groupChatId);
         if (topic == null) {
             log.warn("无法获取或创建话题，放弃转发，userId={}, groupChatId={}", user.id(), groupChatId);
@@ -102,6 +104,11 @@ public class UserToGroupRelayForwarder {
             if (topic == null || topic.getTopicId() == null || topic.getTopicId() > Integer.MAX_VALUE) {
                 return;
             }
+        }
+
+        if (allowMediaGroup && privateMessage.mediaGroupId() != null && !privateMessage.mediaGroupId().isBlank()) {
+            enqueueMediaGroupMessage(privateMessage, groupChatId);
+            return;
         }
 
         ContentType contentType = telegramMessageMediaMapper.inferContentType(privateMessage);
@@ -118,6 +125,10 @@ public class UserToGroupRelayForwarder {
                     log.warn("发送非文本消息未转发提示失败，userId={}, chatId={}", user.id(), privateChatId, e);
                 }
             }
+            return;
+        }
+
+        if (shouldBlockLowTrustTextMessage(user, topic, privateMessage, privateMessage.chat().id())) {
             return;
         }
 
@@ -316,5 +327,49 @@ public class UserToGroupRelayForwarder {
 
         log.info("转发私聊媒体组相册成功，userId={}, topicId={}, mediaGroupId={}, count={}",
                 user.id(), topic.getTopicId(), context.mediaGroupId(), sent.length);
+    }
+
+    private boolean shouldBlockLowTrustTextMessage(User user, Topic topic, Message message, Long privateChatId) {
+        if (user == null || user.id() == null || topic == null || topic.getTopicId() == null || message == null) {
+            return false;
+        }
+
+        long forwardedUserMessageCount = messageService.countMessagesByTopicIdAndSenderIdAndMessageType(
+                topic.getTopicId(),
+                user.id(),
+                com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE
+        );
+        if (forwardedUserMessageCount >= LOW_TRUST_MESSAGE_LIMIT) {
+            return false;
+        }
+
+        if (!containsRestrictedLowTrustText(message.text())) {
+            return false;
+        }
+
+        sendLowTrustRestrictionHint(privateChatId, user.id());
+        log.info("低信任期消息包含链接或用户名，已拦截转发，userId={}, topicId={}, currentCount={}",
+                user.id(), topic.getTopicId(), forwardedUserMessageCount);
+        return true;
+    }
+
+    private boolean containsRestrictedLowTrustText(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        return LINK_PATTERN.matcher(text).find() || USERNAME_MENTION_PATTERN.matcher(text).find();
+    }
+
+    private void sendLowTrustRestrictionHint(Long privateChatId, Long userId) {
+        if (privateChatId == null) {
+            return;
+        }
+        String text = "小提示\n\n新用户前 10 条消息暂时不能包含链接或 @用户名。\n这条消息没有转发给主人。";
+        try {
+            SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+            telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
+        } catch (RuntimeException e) {
+            log.warn("发送低信任期拦截提示失败，userId={}, chatId={}", userId, privateChatId, e);
+        }
     }
 }

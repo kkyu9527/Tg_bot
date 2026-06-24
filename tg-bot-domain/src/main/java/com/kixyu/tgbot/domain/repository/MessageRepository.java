@@ -71,6 +71,16 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByTopicIdAndSenderId(Long topicId, Long senderId);
 
     /**
+     * 统计指定话题中某个发送者的指定类型消息数量。
+     *
+     * @param topicId       话题 ID
+     * @param senderId      发送者 ID
+     * @param messageType   消息类型
+     * @return              消息数量
+     */
+    long countByTopicIdAndSenderIdAndMessageType(Long topicId, Long senderId, Message.MessageType messageType);
+
+    /**
      * 根据媒体组 ID 查询消息列表。
      *
      * @param mediaGroupId  媒体组 ID

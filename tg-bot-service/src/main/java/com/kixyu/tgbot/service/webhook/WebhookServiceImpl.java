@@ -6,6 +6,8 @@ import com.kixyu.tgbot.service.callback.CallbackQueryService;
 import com.kixyu.tgbot.service.onboarding.OnboardingService;
 import com.kixyu.tgbot.service.relay.MessageRelayService;
 import com.kixyu.tgbot.service.topic.TopicService;
+import com.kixyu.tgbot.service.user.UserService;
+import com.kixyu.tgbot.service.verification.VerificationService;
 import com.kixyu.tgbot.support.TelegramCommandExtractor;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.domain.entity.Topic;
@@ -33,6 +35,8 @@ public class WebhookServiceImpl implements WebhookService {
     private final MessageRepository messageRepository;
     private final TopicService topicService;
     private final BlacklistCommandService blacklistCommandService;
+    private final UserService userService;
+    private final VerificationService verificationService;
 
     /**
      * 处理来自 Telegram 的 Webhook 更新。
@@ -93,6 +97,11 @@ public class WebhookServiceImpl implements WebhookService {
             }
 
             if (chat != null && Chat.Type.Private.equals(chat.type())) {
+                if (!userService.isVerified(message.from().id())) {
+                    log.info("未验证私聊消息已拦截，updateId={}, fromId={}, privateChatId={}", updateId, message.from().id(), chat.id());
+                    verificationService.remindVerificationRequired(message.from(), chat.id());
+                    return;
+                }
                 log.info("私聊消息转发到群话题，updateId={}, fromId={}, privateChatId={}", updateId, message.from().id(), chat.id());
                 messageRelayService.forwardPrivateMessageToGroupTopic(message);
                 return;

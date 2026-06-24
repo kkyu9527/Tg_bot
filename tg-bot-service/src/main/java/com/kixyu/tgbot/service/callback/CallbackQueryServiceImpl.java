@@ -3,7 +3,9 @@ package com.kixyu.tgbot.service.callback;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.blacklist.BlacklistCommandService;
+import com.kixyu.tgbot.service.onboarding.OnboardingService;
 import com.kixyu.tgbot.service.topic.TopicService;
+import com.kixyu.tgbot.service.verification.VerificationService;
 import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,8 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
     private final TopicService topicService;
     private final OnboardingSupport onboardingSupport;
     private final BlacklistCommandService blacklistCommandService;
+    private final VerificationService verificationService;
+    private final OnboardingService onboardingService;
 
     /**
      * 处理 Telegram 的回调查询事件。
@@ -49,11 +53,26 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         if (data.startsWith(BLOCK_CALLBACK_PREFIX) && blacklistCommandService.handleIfBlacklistCallback(callbackQuery)) {
             return;
         }
+        if (data.startsWith(VerificationService.CALLBACK_PREFIX)) {
+            if (verificationService.handleVerificationCallback(callbackQuery) && callbackQuery.from() != null) {
+                onboardingService.handleVerifiedStart(callbackQuery.from(), resolvePrivateChatId(callbackQuery));
+            }
+            return;
+        }
         if (data.startsWith(MODE_CALLBACK_PREFIX)) {
             handleModeCallback(callbackQuery, data);
             return;
         }
         answer(callbackQuery, null);
+    }
+
+    private Long resolvePrivateChatId(CallbackQuery callbackQuery) {
+        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
+        Message message = rawMessage instanceof Message m ? m : null;
+        if (message != null && message.chat() != null && message.chat().id() != null) {
+            return message.chat().id();
+        }
+        return callbackQuery.from() == null ? null : callbackQuery.from().id();
     }
 
     /**

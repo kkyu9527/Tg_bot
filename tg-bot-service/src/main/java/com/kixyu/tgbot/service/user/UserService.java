@@ -15,6 +15,14 @@ public interface UserService {
     boolean isBlocked(Long userId);
 
     /**
+     * 检查用户是否已通过人机验证。
+     *
+     * @param userId    用户 ID
+     * @return          如果用户已验证，则返回 true；否则返回 false
+     */
+    boolean isVerified(Long userId);
+
+    /**
      * 保存或更新用户信息。
      *
      * @param userId        用户 ID
@@ -23,6 +31,17 @@ public interface UserService {
      * @param lastName      lastName
      */
     void saveOrUpdateUserInfo(Long userId, String username, String firstName, String lastName);
+
+    /**
+     * 标记用户已通过人机验证。
+     *
+     * @param userId        用户 ID
+     * @param username      用户名
+     * @param firstName     firstName
+     * @param lastName      lastName
+     * @return              更新后的用户实体
+     */
+    User markVerified(Long userId, String username, String firstName, String lastName);
 
     /**
      * 阻塞用户，防止其与机器人进行交互。

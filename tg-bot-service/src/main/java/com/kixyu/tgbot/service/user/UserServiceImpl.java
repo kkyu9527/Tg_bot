@@ -32,6 +32,22 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
+     * 检查用户是否已通过人机验证
+     *
+     * @param userId 用户 ID
+     * @return       如果用户已验证则返回 true，否则返回 false
+     */
+    @Override
+    public boolean isVerified(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        return userRepository.findByUserId(userId)
+                .map(user -> Boolean.TRUE.equals(user.getVerified()))
+                .orElse(false);
+    }
+
+    /**
      * 保存或更新用户信息
      *
      * @param userId    用户 ID
@@ -52,6 +68,7 @@ public class UserServiceImpl implements UserService {
                     .firstName(firstName)
                     .lastName(lastName)
                     .blocked(false)
+                    .verified(false)
                     .build();
             userRepository.save(created);
             return;
@@ -72,6 +89,52 @@ public class UserServiceImpl implements UserService {
         if (changed) {
             userRepository.save(existing);
         }
+    }
+
+    /**
+     * 标记用户已通过人机验证
+     *
+     * @param userId    用户 ID
+     * @param username  用户名
+     * @param firstName 名
+     * @param lastName  姓
+     * @return          更新后的用户实体
+     */
+    @Override
+    public User markVerified(Long userId, String username, String firstName, String lastName) {
+        if (userId == null) {
+            return null;
+        }
+        User existing = userRepository.findByUserId(userId).orElse(null);
+        if (existing == null) {
+            User created = User.builder()
+                    .userId(userId)
+                    .username(username)
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .blocked(false)
+                    .verified(true)
+                    .build();
+            return userRepository.save(created);
+        }
+        boolean changed = false;
+        if (username != null && !username.equals(existing.getUsername())) {
+            existing.setUsername(username);
+            changed = true;
+        }
+        if (firstName != null && !firstName.equals(existing.getFirstName())) {
+            existing.setFirstName(firstName);
+            changed = true;
+        }
+        if (lastName != null && !lastName.equals(existing.getLastName())) {
+            existing.setLastName(lastName);
+            changed = true;
+        }
+        if (!Boolean.TRUE.equals(existing.getVerified())) {
+            existing.setVerified(true);
+            changed = true;
+        }
+        return changed ? userRepository.save(existing) : existing;
     }
 
     /**
@@ -96,6 +159,7 @@ public class UserServiceImpl implements UserService {
         User created = User.builder()
                 .userId(userId)
                 .blocked(true)
+                .verified(false)
                 .build();
         return userRepository.save(created);
     }

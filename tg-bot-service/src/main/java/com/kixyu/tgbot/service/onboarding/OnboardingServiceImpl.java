@@ -4,6 +4,8 @@ import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.common.OnboardingCommonService;
+import com.kixyu.tgbot.service.user.UserService;
+import com.kixyu.tgbot.service.verification.VerificationService;
 import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.Chat;
@@ -29,6 +31,8 @@ public class OnboardingServiceImpl implements OnboardingService {
     private final TelegramApiClient telegramApiClient;
     private final TopicService topicService;
     private final OnboardingCommonService onboardingCommonService;
+    private final UserService userService;
+    private final VerificationService verificationService;
 
     /**
      * 统一的命令处理入口，根据命令名称分发到具体处理方法。
@@ -43,6 +47,15 @@ public class OnboardingServiceImpl implements OnboardingService {
         if (command == null) {
             return;
         }
+        if (!"start".equals(command)
+                && message != null
+                && message.from() != null
+                && chat != null
+                && Chat.Type.Private.equals(chat.type())
+                && !userService.isVerified(message.from().id())) {
+            verificationService.remindVerificationRequired(message.from(), chat.id());
+            return;
+        }
         switch (command) {
             case "start" -> {
                 if (message == null || message.from() == null) {
@@ -55,7 +68,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                     privateChatId = message.from().id();
                 }
                 if (privateChatId != null) {
-                    handleStart(message.from(), privateChatId);
+                    handleStartCommand(message.from(), privateChatId);
                 }
             }
             case "info" -> handleInfoCommand(updateId, message, chat);
@@ -75,7 +88,19 @@ public class OnboardingServiceImpl implements OnboardingService {
      * @param user          触发命令的用户
      * @param privateChatId 用户私聊窗口的聊天 ID
      */
-    private void handleStart(User user, Long privateChatId) {
+    private void handleStartCommand(User user, Long privateChatId) {
+        if (user == null || user.id() == null || privateChatId == null) {
+            return;
+        }
+        if (!userService.isVerified(user.id())) {
+            verificationService.sendChallenge(user, privateChatId);
+            return;
+        }
+        handleVerifiedStart(user, privateChatId);
+    }
+
+    @Override
+    public void handleVerifiedStart(User user, Long privateChatId) {
         try {
             log.info("处理 /start，userId={}, privateChatId={}, username={}", user.id(), privateChatId, user.username());
             try {

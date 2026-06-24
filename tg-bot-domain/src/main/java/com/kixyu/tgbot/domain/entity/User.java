@@ -40,6 +40,10 @@ public class User {
     @Column(name = "blocked", nullable = false)
     private Boolean blocked;
 
+    // 用户是否已通过人机验证
+    @Column(name = "verified")
+    private Boolean verified;
+
     // 用户创建时间，记录用户在系统中的注册时间
     @Column(name = "create_time", nullable = false)
     private LocalDateTime createTime;
@@ -51,6 +55,12 @@ public class User {
     // 当用户实体被持久化到数据库时调用，设置创建时间和更新时间为当前时间
     @PrePersist
     protected void onCreate() {
+        if (blocked == null) {
+            blocked = false;
+        }
+        if (verified == null) {
+            verified = false;
+        }
         createTime = LocalDateTime.now();
         updateTime = LocalDateTime.now();
     }
@@ -61,4 +71,3 @@ public class User {
         updateTime = LocalDateTime.now();
     }
 }
-

@@ -1,6 +1,7 @@
 package com.kixyu.tgbot.service.relay;
 
 import com.kixyu.tgbot.domain.entity.Message.ContentType;
+import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.bot.BotService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
@@ -23,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,8 +40,9 @@ import java.util.regex.Pattern;
 public class UserToGroupRelayForwarder {
 
     private static final int LOW_TRUST_MESSAGE_LIMIT = 10;
+    private static final long LOW_TRUST_MESSAGE_INTERVAL_MILLIS = 10_000L;
     private static final Pattern LINK_PATTERN = Pattern.compile("(?i)\\b(?:https?://|www\\.|t\\.me/|telegram\\.me/|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|net|org|io|me|cn|cc|xyz|top|vip|app|dev|link|shop|site|online|live|info|biz|tv|gg)(?:/\\S*)?)");
-    private static final Pattern USERNAME_MENTION_PATTERN = Pattern.compile("(?<![\\w.])@[A-Za-z0-9_]{5,32}\\b");
+    private static final Pattern USERNAME_MENTION_PATTERN = Pattern.compile("(?<![\\w.])[@＠][A-Za-z0-9_]{4,32}\\b");
 
     private final TelegramApiClient telegramApiClient;
     private final TelegramBotProperties telegramBotProperties;
@@ -51,6 +55,7 @@ public class UserToGroupRelayForwarder {
 
     private final ScheduledExecutorService mediaGroupScheduler = Executors.newSingleThreadScheduledExecutor();
     private final ConcurrentHashMap<String, MediaGroupRelaySupport.MessageBuffer<MediaGroupContext>> mediaGroupBuffers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Object> userForwardLocks = new ConcurrentHashMap<>();
 
     private record MediaGroupContext(Long privateChatId, String groupChatId, String mediaGroupId) {
     }
@@ -128,52 +133,55 @@ public class UserToGroupRelayForwarder {
             return;
         }
 
-        if (shouldBlockLowTrustTextMessage(user, topic, privateMessage, privateMessage.chat().id())) {
-            return;
-        }
-
-        CopyMessage copyMessage = new CopyMessage(groupId, privateMessage.chat().id(), privateMessage.messageId())
-                .messageThreadId(topic.getTopicId());
-
-        Integer replyTo = relayReplyMapper.resolveGroupReplyToMessageId(privateMessage);
-        if (replyTo != null) {
-            copyMessage.replyParameters(new ReplyParameters(replyTo).allowSendingWithoutReply(true));
-        }
-
-        MessageIdResponse copied = telegramApiClient.execute(copyMessage);
-        if (copied == null || !copied.isOk() || copied.messageId() == null) {
-            if (copied != null && TelegramApiErrorUtil.looksLikeInvalidThread(copied)) {
-                log.warn("疑似话题不存在，尝试重建后重试转发，userId={}, topicId={}", user.id(), topic.getTopicId());
-                Topic recreated = relayTopicManager.recreateTopic(user, groupChatId);
-                if (recreated == null || recreated.getTopicId() == null || recreated.getTopicId() > Integer.MAX_VALUE) {
-                    log.warn("重建话题失败，放弃重试转发，userId={}, groupChatId={}", user.id(), groupChatId);
-                    return;
-                }
-                MessageIdResponse retried = telegramApiClient.execute(
-                        new CopyMessage(groupId, privateMessage.chat().id(), privateMessage.messageId()).messageThreadId(recreated.getTopicId())
-                );
-                if (retried == null || !retried.isOk() || retried.messageId() == null) {
-                    log.warn("重建后重试转发仍失败，userId={}", user.id());
-                    return;
-                }
-                copied = retried;
-                topic = recreated;
-            } else {
-                log.warn("转发私聊消息失败，userId={}, error={}", user.id(), copied == null ? null : copied.description());
+        Object forwardLock = userForwardLocks.computeIfAbsent(user.id(), ignored -> new Object());
+        synchronized (forwardLock) {
+            if (contentType == ContentType.TEXT && shouldBlockLowTrustTextMessage(user, topic, privateMessage, privateMessage.chat().id())) {
                 return;
             }
-        }
 
-        Long originalMessageId = privateMessage.messageId() == null ? null : privateMessage.messageId().longValue();
-        Long forwardedMessageId = copied.messageId() == null ? null : copied.messageId().longValue();
-        if (originalMessageId == null || forwardedMessageId == null) {
-            log.warn("转发私聊消息失败：messageId 缺失，userId={}", user.id());
-            return;
-        }
+            CopyMessage copyMessage = new CopyMessage(groupId, privateMessage.chat().id(), privateMessage.messageId())
+                    .messageThreadId(topic.getTopicId());
 
-        botService.handleUserMessage(user, contentType, groupChatId, originalMessageId, forwardedMessageId, topic.getTopicId());
-        log.info("转发私聊消息成功，userId={}, topicId={}, originalMessageId={}, copiedMessageId={}",
-                user.id(), topic.getTopicId(), originalMessageId, forwardedMessageId);
+            Integer replyTo = relayReplyMapper.resolveGroupReplyToMessageId(privateMessage);
+            if (replyTo != null) {
+                copyMessage.replyParameters(new ReplyParameters(replyTo).allowSendingWithoutReply(true));
+            }
+
+            MessageIdResponse copied = telegramApiClient.execute(copyMessage);
+            if (copied == null || !copied.isOk() || copied.messageId() == null) {
+                if (copied != null && TelegramApiErrorUtil.looksLikeInvalidThread(copied)) {
+                    log.warn("疑似话题不存在，尝试重建后重试转发，userId={}, topicId={}", user.id(), topic.getTopicId());
+                    Topic recreated = relayTopicManager.recreateTopic(user, groupChatId);
+                    if (recreated == null || recreated.getTopicId() == null || recreated.getTopicId() > Integer.MAX_VALUE) {
+                        log.warn("重建话题失败，放弃重试转发，userId={}, groupChatId={}", user.id(), groupChatId);
+                        return;
+                    }
+                    MessageIdResponse retried = telegramApiClient.execute(
+                            new CopyMessage(groupId, privateMessage.chat().id(), privateMessage.messageId()).messageThreadId(recreated.getTopicId())
+                    );
+                    if (retried == null || !retried.isOk() || retried.messageId() == null) {
+                        log.warn("重建后重试转发仍失败，userId={}", user.id());
+                        return;
+                    }
+                    copied = retried;
+                    topic = recreated;
+                } else {
+                    log.warn("转发私聊消息失败，userId={}, error={}", user.id(), copied == null ? null : copied.description());
+                    return;
+                }
+            }
+
+            Long originalMessageId = privateMessage.messageId() == null ? null : privateMessage.messageId().longValue();
+            Long forwardedMessageId = copied.messageId() == null ? null : copied.messageId().longValue();
+            if (originalMessageId == null || forwardedMessageId == null) {
+                log.warn("转发私聊消息失败：messageId 缺失，userId={}", user.id());
+                return;
+            }
+
+            botService.handleUserMessage(user, contentType, groupChatId, originalMessageId, forwardedMessageId, topic.getTopicId());
+            log.info("转发私聊消息成功，userId={}, topicId={}, originalMessageId={}, copiedMessageId={}",
+                    user.id(), topic.getTopicId(), originalMessageId, forwardedMessageId);
+        }
     }
 
     /**
@@ -337,19 +345,38 @@ public class UserToGroupRelayForwarder {
         long forwardedUserMessageCount = messageService.countMessagesByTopicIdAndSenderIdAndMessageType(
                 topic.getTopicId(),
                 user.id(),
-                com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE
+                MessageType.USER_MESSAGE
         );
         if (forwardedUserMessageCount >= LOW_TRUST_MESSAGE_LIMIT) {
             return false;
         }
 
-        if (!containsRestrictedLowTrustText(message.text())) {
+        if (containsRestrictedLowTrustText(message.text())) {
+            sendLowTrustRestrictionHint(privateChatId, user.id());
+            log.info("低信任期消息包含链接或用户名，已拦截转发，userId={}, topicId={}, currentCount={}",
+                    user.id(), topic.getTopicId(), forwardedUserMessageCount);
+            return true;
+        }
+
+        return messageService.getLatestMessageByTopicIdAndSenderIdAndMessageType(topic.getTopicId(), user.id(), MessageType.USER_MESSAGE)
+                .map(latest -> shouldBlockLowTrustInterval(user, topic, privateChatId, forwardedUserMessageCount, latest.getCreateTime()))
+                .orElse(false);
+    }
+
+    private boolean shouldBlockLowTrustInterval(User user, Topic topic, Long privateChatId, long forwardedUserMessageCount,
+                                                LocalDateTime createTime) {
+        if (createTime == null) {
+            return false;
+        }
+        long elapsedMillis = Duration.between(createTime, LocalDateTime.now()).toMillis();
+        long remainingMillis = LOW_TRUST_MESSAGE_INTERVAL_MILLIS - elapsedMillis;
+        if (remainingMillis <= 0) {
             return false;
         }
 
-        sendLowTrustRestrictionHint(privateChatId, user.id());
-        log.info("低信任期消息包含链接或用户名，已拦截转发，userId={}, topicId={}, currentCount={}",
-                user.id(), topic.getTopicId(), forwardedUserMessageCount);
+        sendLowTrustIntervalHint(privateChatId, user.id(), remainingMillis);
+        log.info("低信任期消息发送过快，已拦截转发，userId={}, topicId={}, currentCount={}, remainingMillis={}",
+                user.id(), topic.getTopicId(), forwardedUserMessageCount, remainingMillis);
         return true;
     }
 
@@ -370,6 +397,20 @@ public class UserToGroupRelayForwarder {
             telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
         } catch (RuntimeException e) {
             log.warn("发送低信任期拦截提示失败，userId={}, chatId={}", userId, privateChatId, e);
+        }
+    }
+
+    private void sendLowTrustIntervalHint(Long privateChatId, Long userId, long remainingMillis) {
+        if (privateChatId == null) {
+            return;
+        }
+        long remainingSeconds = Math.max(1L, (long) Math.ceil(remainingMillis / 1000.0));
+        String text = "小提示\n\n新用户前 10 条消息需要间隔 10 秒。\n请 " + remainingSeconds + " 秒后再发送。";
+        try {
+            SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+            telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
+        } catch (RuntimeException e) {
+            log.warn("发送低信任期频率提示失败，userId={}, chatId={}", userId, privateChatId, e);
         }
     }
 }

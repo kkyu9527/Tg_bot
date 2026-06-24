@@ -1,5 +1,6 @@
 package com.kixyu.tgbot.service.relay.mapper;
 
+import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.message.MessageService;
 import com.kixyu.tgbot.service.topic.TopicService;
@@ -29,7 +30,7 @@ public class RelayReplyMapper {
     public Long resolveTargetUserId(Message groupMessage, Long threadId, String groupChatId) {
         if (groupMessage.replyToMessage() != null && groupMessage.replyToMessage().messageId() != null) {
             Long repliedMessageId = groupMessage.replyToMessage().messageId().longValue();
-            Optional<com.kixyu.tgbot.domain.entity.Message> mapped = messageService.getMessageByForwardedMessageId(repliedMessageId);
+            var mapped = messageService.getMessageByForwardedMessageId(repliedMessageId);
             if (mapped.isPresent()) {
                 return mapped.get().getSenderId();
             }
@@ -55,7 +56,7 @@ public class RelayReplyMapper {
         }
 
         Long repliedMessageId = groupMessage.replyToMessage().messageId().longValue();
-        Optional<com.kixyu.tgbot.domain.entity.Message> mapped = messageService.getMessageByForwardedMessageId(repliedMessageId);
+        var mapped = messageService.getMessageByForwardedMessageId(repliedMessageId);
         if (mapped.isEmpty()) {
             return null;
         }
@@ -84,7 +85,7 @@ public class RelayReplyMapper {
 
         Long repliedMessageId = privateMessage.replyToMessage().messageId().longValue();
 
-        Optional<com.kixyu.tgbot.domain.entity.Message> mapped = messageService.getMessageByOriginalMessageId(repliedMessageId);
+        var mapped = messageService.getMessageByOriginalMessageId(repliedMessageId);
         if (mapped.isEmpty()) {
             mapped = messageService.getMessageByForwardedMessageId(repliedMessageId);
             if (mapped.isEmpty()) {
@@ -92,11 +93,11 @@ public class RelayReplyMapper {
             }
         }
 
-        com.kixyu.tgbot.domain.entity.Message entity = mapped.get();
+        var entity = mapped.get();
         Long targetMessageId;
-        if (entity.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
+        if (entity.getMessageType() == MessageType.USER_MESSAGE) {
             targetMessageId = entity.getForwardedMessageId();
-        } else if (entity.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE) {
+        } else if (entity.getMessageType() == MessageType.OWNER_MESSAGE) {
             targetMessageId = entity.getOriginalMessageId();
         } else {
             targetMessageId = null;

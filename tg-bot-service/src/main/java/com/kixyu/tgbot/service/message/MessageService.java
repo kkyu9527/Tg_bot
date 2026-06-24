@@ -47,6 +47,11 @@ public interface MessageService {
     long countMessagesByTopicIdAndSenderIdAndMessageType(Long topicId, Long senderId, Message.MessageType messageType);
 
     /**
+     * 查询指定话题中某个发送者最近一条指定类型消息
+     */
+    Optional<Message> getLatestMessageByTopicIdAndSenderIdAndMessageType(Long topicId, Long senderId, Message.MessageType messageType);
+
+    /**
      * 根据媒体组ID获取消息列表
      */
     List<Message> getMessagesByMediaGroupId(String mediaGroupId);

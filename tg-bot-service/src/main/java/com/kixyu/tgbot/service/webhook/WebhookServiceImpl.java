@@ -10,6 +10,7 @@ import com.kixyu.tgbot.service.user.UserService;
 import com.kixyu.tgbot.service.verification.VerificationService;
 import com.kixyu.tgbot.support.TelegramCommandExtractor;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
+import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.domain.repository.MessageRepository;
 import lombok.RequiredArgsConstructor;
@@ -152,11 +153,11 @@ public class WebhookServiceImpl implements WebhookService {
         }
 
         if (Chat.Type.Private.equals(chat.type())) {
-            com.kixyu.tgbot.domain.entity.Message mapping = messageRepository
+            var mapping = messageRepository
                     .findByOriginalMessageIdAndSenderIdAndMessageType(
                             editedMessage.messageId().longValue(),
                             editedMessage.from().id(),
-                            com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE
+                            MessageType.USER_MESSAGE
                     )
                     .orElse(null);
             if (mapping == null || mapping.getForwardedMessageId() == null || groupId == null) {
@@ -167,11 +168,11 @@ public class WebhookServiceImpl implements WebhookService {
         }
 
         if (groupId != null && groupId.equals(chatId) && ownerId != null && ownerId.equals(editedMessage.from().id())) {
-            com.kixyu.tgbot.domain.entity.Message mapping = messageRepository
+            var mapping = messageRepository
                     .findByOriginalMessageIdAndSenderIdAndMessageType(
                             editedMessage.messageId().longValue(),
                             editedMessage.from().id(),
-                            com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE
+                            MessageType.OWNER_MESSAGE
                     )
                     .orElse(null);
             if (mapping == null || mapping.getForwardedMessageId() == null) {

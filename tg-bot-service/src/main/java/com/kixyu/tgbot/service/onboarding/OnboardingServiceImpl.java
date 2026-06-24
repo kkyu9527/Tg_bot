@@ -1,6 +1,7 @@
 package com.kixyu.tgbot.service.onboarding;
 
 import com.kixyu.tgbot.config.TelegramBotProperties;
+import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.common.OnboardingCommonService;
@@ -429,14 +430,14 @@ public class OnboardingServiceImpl implements OnboardingService {
 
         if (Chat.Type.Private.equals(chat.type())) {
             Long userId = message.from().id();
-            com.kixyu.tgbot.domain.entity.Message mapping = onboardingCommonService.findMessageMapping(repliedMessageId);
+            var mapping = onboardingCommonService.findMessageMapping(repliedMessageId);
             if (mapping != null) {
                 Topic topic = onboardingCommonService.findValidTopic(mapping);
                 if (topic != null && topic.getUserId() != null && topic.getUserId().equals(userId)) {
                     Long senderId = mapping.getSenderId();
                     if (senderId == null
                             || !senderId.equals(userId)
-                            || mapping.getMessageType() != com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
+                            || mapping.getMessageType() != MessageType.USER_MESSAGE) {
                         Integer commandMessageId = message.messageId();
                         if (commandMessageId != null) {
                             telegramApiClient.scheduleDelete(chatId, commandMessageId, 0L);
@@ -474,7 +475,7 @@ public class OnboardingServiceImpl implements OnboardingService {
             if (ownerId != null && !ownerId.equals(message.from().id())) {
                 return;
             }
-            com.kixyu.tgbot.domain.entity.Message mapping = onboardingCommonService.findMessageMapping(repliedMessageId);
+            var mapping = onboardingCommonService.findMessageMapping(repliedMessageId);
             Topic topic = onboardingCommonService.findValidTopic(mapping);
             String groupChatId = String.valueOf(groupId);
             if (mapping == null || topic == null || !groupChatId.equals(topic.getChatId())) {

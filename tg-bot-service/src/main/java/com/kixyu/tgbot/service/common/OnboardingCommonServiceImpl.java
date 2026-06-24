@@ -1,13 +1,14 @@
 package com.kixyu.tgbot.service.common;
 
 import com.kixyu.tgbot.config.TelegramBotProperties;
+import com.kixyu.tgbot.domain.entity.Message;
+import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.message.MessageService;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.Chat;
-import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.request.DeleteMessage;
 import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +44,7 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
      */
     @Override
     public void deletePairedMessagesFromPrivate(Integer updateId, Long userId, Long privateChatId, Long repliedMessageId) {
-        com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
+        Message mapping = findMessageMapping(repliedMessageId);
         if (mapping == null) {
             return;
         }
@@ -93,7 +94,7 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
      */
     @Override
     public void deletePairedMessagesFromGroup(Integer updateId, Long groupId, Long repliedMessageId) {
-        com.kixyu.tgbot.domain.entity.Message mapping = findMessageMapping(repliedMessageId);
+        Message mapping = findMessageMapping(repliedMessageId);
         if (mapping == null) {
             return;
         }
@@ -147,9 +148,9 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
         Long privateChatId = topic.getUserId();
         Long groupId = onboardingSupport.parseChatIdLong(topic.getChatId());
 
-        List<com.kixyu.tgbot.domain.entity.Message> messages = messageService.getMessagesByTopicId(topicId);
+        List<Message> messages = messageService.getMessagesByTopicId(topicId);
         if (messages != null) {
-            for (com.kixyu.tgbot.domain.entity.Message mapping : messages) {
+            for (Message mapping : messages) {
                 deleteMessageSafely(updateId, privateChatId, mapping.getOriginalMessageId());
                 deleteMessageSafely(updateId, privateChatId, mapping.getForwardedMessageId());
                 if (groupId != null) {
@@ -219,7 +220,7 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
      * @return          消息映射实体，找不到时返回 {@code null}
      */
     @Override
-    public com.kixyu.tgbot.domain.entity.Message findMessageMapping(Long messageId) {
+    public Message findMessageMapping(Long messageId) {
         return messageService.getMessageByOriginalMessageId(messageId)
                 .orElseGet(() -> messageService.getMessageByForwardedMessageId(messageId).orElse(null));
     }
@@ -231,7 +232,7 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
      * @return          关联的话题，找不到或无效时返回 {@code null}
      */
     @Override
-    public Topic findValidTopic(com.kixyu.tgbot.domain.entity.Message mapping) {
+    public Topic findValidTopic(Message mapping) {
         if (mapping == null || mapping.getTopicId() == null) {
             return null;
         }
@@ -258,7 +259,7 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
      * @return {@code true} 表示命令无效，应直接返回；{@code false} 表示命令校验通过
      */
     @Override
-    public boolean isInvalidGroupOwnerCommand(Message message, Chat chat) {
+    public boolean isInvalidGroupOwnerCommand(com.pengrad.telegrambot.model.Message message, Chat chat) {
         if (message == null || message.from() == null || chat == null || chat.id() == null) {
             return true;
         }
@@ -276,16 +277,16 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
      * @param mapping   消息映射实体
      * @return          成对消息 ID，无法解析时返回 {@code null}
      */
-    private PairedMessageIds resolvePairedMessageIds(com.kixyu.tgbot.domain.entity.Message mapping) {
+    private PairedMessageIds resolvePairedMessageIds(Message mapping) {
         if (mapping == null) {
             return null;
         }
         Long userMessageId;
         Long groupMessageId;
-        if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.USER_MESSAGE) {
+        if (mapping.getMessageType() == MessageType.USER_MESSAGE) {
             userMessageId = mapping.getOriginalMessageId();
             groupMessageId = mapping.getForwardedMessageId();
-        } else if (mapping.getMessageType() == com.kixyu.tgbot.domain.entity.Message.MessageType.OWNER_MESSAGE) {
+        } else if (mapping.getMessageType() == MessageType.OWNER_MESSAGE) {
             userMessageId = mapping.getForwardedMessageId();
             groupMessageId = mapping.getOriginalMessageId();
         } else {

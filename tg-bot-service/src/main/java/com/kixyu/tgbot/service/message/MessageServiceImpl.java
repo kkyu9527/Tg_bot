@@ -110,6 +110,19 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
+     * 查询指定话题中某个发送者最近一条指定类型消息。
+     *
+     * @param topicId     话题 ID
+     * @param senderId    发送者 ID
+     * @param messageType 消息类型
+     * @return            最近一条消息，可为空
+     */
+    @Override
+    public Optional<Message> getLatestMessageByTopicIdAndSenderIdAndMessageType(Long topicId, Long senderId, Message.MessageType messageType) {
+        return messageRepository.findFirstByTopicIdAndSenderIdAndMessageTypeOrderByCreateTimeDesc(topicId, senderId, messageType);
+    }
+
+    /**
      * 根据媒体组 ID 查询消息。
      *
      * @param mediaGroupId 媒体组 ID

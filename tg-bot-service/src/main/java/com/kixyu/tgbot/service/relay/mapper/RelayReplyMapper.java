@@ -1,8 +1,8 @@
 package com.kixyu.tgbot.service.relay.mapper;
 
 import com.kixyu.tgbot.domain.entity.Topic;
-import com.kixyu.tgbot.service.MessageService;
-import com.kixyu.tgbot.service.TopicService;
+import com.kixyu.tgbot.service.message.MessageService;
+import com.kixyu.tgbot.service.topic.TopicService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.pengrad.telegrambot.model.Message;

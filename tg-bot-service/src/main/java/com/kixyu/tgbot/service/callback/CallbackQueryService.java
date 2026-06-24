@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service;
+package com.kixyu.tgbot.service.callback;
 
 import com.pengrad.telegrambot.model.CallbackQuery;
 

@@ -1,8 +1,7 @@
-package com.kixyu.tgbot.service.impl;
+package com.kixyu.tgbot.service.bot;
 
 import com.kixyu.tgbot.domain.entity.Message;
 import com.kixyu.tgbot.domain.entity.Topic;
-import com.kixyu.tgbot.service.BotService;
 import com.kixyu.tgbot.service.common.BotCommonService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

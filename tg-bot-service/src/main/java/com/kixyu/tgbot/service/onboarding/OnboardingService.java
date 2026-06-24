@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service;
+package com.kixyu.tgbot.service.onboarding;
 
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;

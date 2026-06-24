@@ -1,8 +1,7 @@
-package com.kixyu.tgbot.service.impl;
+package com.kixyu.tgbot.service.message;
 
 import com.kixyu.tgbot.domain.entity.Message;
 import com.kixyu.tgbot.domain.repository.MessageRepository;
-import com.kixyu.tgbot.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

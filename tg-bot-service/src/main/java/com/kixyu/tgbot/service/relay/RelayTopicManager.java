@@ -1,7 +1,7 @@
 package com.kixyu.tgbot.service.relay;
 
 import com.kixyu.tgbot.domain.entity.Topic;
-import com.kixyu.tgbot.service.TopicService;
+import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiErrorUtil;

@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service;
+package com.kixyu.tgbot.service.relay;
 
 import com.pengrad.telegrambot.model.Message;
 

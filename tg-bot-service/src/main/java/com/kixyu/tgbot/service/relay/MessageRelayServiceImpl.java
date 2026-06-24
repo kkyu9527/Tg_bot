@@ -1,8 +1,5 @@
-package com.kixyu.tgbot.service.impl;
+package com.kixyu.tgbot.service.relay;
 
-import com.kixyu.tgbot.service.relay.GroupToUserRelayForwarder;
-import com.kixyu.tgbot.service.MessageRelayService;
-import com.kixyu.tgbot.service.relay.UserToGroupRelayForwarder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.pengrad.telegrambot.model.Message;

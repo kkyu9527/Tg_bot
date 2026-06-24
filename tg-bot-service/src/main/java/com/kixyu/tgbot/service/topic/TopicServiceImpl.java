@@ -1,9 +1,8 @@
-package com.kixyu.tgbot.service.impl;
+package com.kixyu.tgbot.service.topic;
 
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.domain.repository.TopicRepository;
-import com.kixyu.tgbot.service.MessageService;
-import com.kixyu.tgbot.service.TopicService;
+import com.kixyu.tgbot.service.message.MessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

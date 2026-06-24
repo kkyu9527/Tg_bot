@@ -1,8 +1,7 @@
-package com.kixyu.tgbot.service.impl;
+package com.kixyu.tgbot.service.user;
 
 import com.kixyu.tgbot.domain.entity.User;
 import com.kixyu.tgbot.domain.repository.UserRepository;
-import com.kixyu.tgbot.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

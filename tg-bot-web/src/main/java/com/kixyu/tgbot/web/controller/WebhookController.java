@@ -1,6 +1,6 @@
 package com.kixyu.tgbot.web.controller;
 
-import com.kixyu.tgbot.service.WebhookService;
+import com.kixyu.tgbot.service.webhook.WebhookService;
 import com.pengrad.telegrambot.utility.BotUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,10 +1,9 @@
-package com.kixyu.tgbot.service.impl.common;
+package com.kixyu.tgbot.service.common;
 
 import com.kixyu.tgbot.domain.entity.Message;
 import com.kixyu.tgbot.domain.entity.Topic;
-import com.kixyu.tgbot.service.MessageService;
-import com.kixyu.tgbot.service.TopicService;
-import com.kixyu.tgbot.service.common.BotCommonService;
+import com.kixyu.tgbot.service.message.MessageService;
+import com.kixyu.tgbot.service.topic.TopicService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.pengrad.telegrambot.model.User;

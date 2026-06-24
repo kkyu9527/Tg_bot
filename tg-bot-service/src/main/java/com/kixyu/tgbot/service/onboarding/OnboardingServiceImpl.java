@@ -1,9 +1,8 @@
-package com.kixyu.tgbot.service.impl;
+package com.kixyu.tgbot.service.onboarding;
 
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.domain.entity.Topic;
-import com.kixyu.tgbot.service.OnboardingService;
-import com.kixyu.tgbot.service.TopicService;
+import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.common.OnboardingCommonService;
 import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiClient;

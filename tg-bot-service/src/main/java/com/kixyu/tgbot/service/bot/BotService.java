@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service;
+package com.kixyu.tgbot.service.bot;
 
 import com.kixyu.tgbot.domain.entity.Message;
 import com.pengrad.telegrambot.model.User;

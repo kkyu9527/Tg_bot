@@ -1,15 +1,15 @@
-package com.kixyu.tgbot.service.impl;
+package com.kixyu.tgbot.service.webhook;
 
-import com.kixyu.tgbot.service.OnboardingService;
-import com.kixyu.tgbot.service.WebhookService;
-import com.kixyu.tgbot.service.CallbackQueryService;
-import com.kixyu.tgbot.service.MessageRelayService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
+import com.kixyu.tgbot.service.blacklist.BlacklistCommandService;
+import com.kixyu.tgbot.service.callback.CallbackQueryService;
+import com.kixyu.tgbot.service.onboarding.OnboardingService;
+import com.kixyu.tgbot.service.relay.MessageRelayService;
+import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.support.TelegramCommandExtractor;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.domain.repository.MessageRepository;
-import com.kixyu.tgbot.service.TopicService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +32,7 @@ public class WebhookServiceImpl implements WebhookService {
     private final TelegramApiClient telegramApiClient;
     private final MessageRepository messageRepository;
     private final TopicService topicService;
+    private final BlacklistCommandService blacklistCommandService;
 
     /**
      * 处理来自 Telegram 的 Webhook 更新。
@@ -79,6 +80,11 @@ public class WebhookServiceImpl implements WebhookService {
                     message.messageThreadId(),
                     message.mediaGroupId()
             );
+
+            if (blacklistCommandService.handleIfBlacklistMessage(message, chat)) {
+                log.info("黑名单管理消息已处理，updateId={}, messageId={}", updateId, message.messageId());
+                return;
+            }
 
             String command = telegramCommandExtractor.extractCommand(message);
             if (command != null) {

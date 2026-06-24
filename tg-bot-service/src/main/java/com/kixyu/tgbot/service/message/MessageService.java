@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service;
+package com.kixyu.tgbot.service.message;
 
 import com.kixyu.tgbot.domain.entity.Message;
 import java.util.List;

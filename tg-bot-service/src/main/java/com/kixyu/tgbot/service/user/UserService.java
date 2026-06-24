@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service;
+package com.kixyu.tgbot.service.user;
 
 import com.kixyu.tgbot.domain.entity.User;
 

@@ -210,6 +210,7 @@ public class GroupToUserRelayForwarder {
                 if (groupId != null && threadId != null) {
                     notifyOwnerUserBlocked(groupId, threadId, context.userId());
                 }
+                return;
             }
             for (Message message : bufferedMessages) {
                 relayInternal(message, false);
@@ -252,6 +253,8 @@ public class GroupToUserRelayForwarder {
         }
         String msg = response.description().toLowerCase();
         return msg.contains("blocked by the user")
+                || msg.contains("bot was blocked")
+                || msg.contains("forbidden")
                 || msg.contains("user is deactivated")
                 || msg.contains("chat not found");
     }

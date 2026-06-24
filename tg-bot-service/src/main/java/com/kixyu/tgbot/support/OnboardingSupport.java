@@ -42,6 +42,7 @@ import java.util.Optional;
 @Slf4j
 public class OnboardingSupport {
 
+    private static final String BLOCKED_TOPIC_NAME_PREFIX = "🚫 ";
     private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
 
     private final TelegramApiClient telegramApiClient;
@@ -79,8 +80,8 @@ public class OnboardingSupport {
         topicService.handleTopicDeletion(userId, chatId);
     }
 
-    public void createTopic(Long userId, String username, String firstName, String lastName, Long topicId, String chatId) {
-        topicService.createTopic(userId, username, firstName, lastName, topicId, chatId);
+    public Topic createTopic(Long userId, String username, String firstName, String lastName, Long topicId, String chatId) {
+        return topicService.createTopic(userId, username, firstName, lastName, topicId, chatId);
     }
 
     /**
@@ -160,6 +161,58 @@ public class OnboardingSupport {
     }
 
     /**
+     * 按拉黑状态同步话题名前缀。
+     *
+     * @param topic   话题映射
+     * @param blocked 是否已拉黑
+     */
+    public void syncBlockedTopicName(Topic topic, boolean blocked) {
+        if (topic == null || topic.getTopicId() == null || topic.getChatId() == null) {
+            return;
+        }
+        Long groupChatIdLong = parseChatIdLong(topic.getChatId());
+        if (groupChatIdLong == null) {
+            return;
+        }
+
+        String currentTopicName = topic.getTopicName();
+        if (currentTopicName == null || currentTopicName.isBlank()) {
+            currentTopicName = "Topic " + topic.getTopicId();
+        }
+        String normalizedTopicName = removeBlockedTopicNamePrefix(currentTopicName);
+        String nextTopicName = blocked ? BLOCKED_TOPIC_NAME_PREFIX + normalizedTopicName : normalizedTopicName;
+        if (nextTopicName.equals(currentTopicName)) {
+            return;
+        }
+
+        try {
+            BaseResponse response = telegramApiClient.execute(
+                    new EditForumTopic(groupChatIdLong, topic.getTopicId())
+                            .name(nextTopicName)
+            );
+            if (response == null || !response.isOk()) {
+                log.warn("同步拉黑话题名前缀失败，topicId={}, userId={}, blocked={}, responseOk={}, error={}",
+                        topic.getTopicId(), topic.getUserId(), blocked, response == null ? null : response.isOk(), response == null ? null : response.description());
+                return;
+            }
+            topic.setTopicName(nextTopicName);
+            topicService.saveTopic(topic);
+            log.info("已同步拉黑话题名前缀，topicId={}, userId={}, blocked={}, topicName={}",
+                    topic.getTopicId(), topic.getUserId(), blocked, nextTopicName);
+        } catch (RuntimeException e) {
+            log.warn("同步拉黑话题名前缀异常，topicId={}, userId={}, blocked={}", topic.getTopicId(), topic.getUserId(), blocked, e);
+        }
+    }
+
+    private String removeBlockedTopicNamePrefix(String topicName) {
+        String result = topicName == null ? "" : topicName.strip();
+        while (result.startsWith(BLOCKED_TOPIC_NAME_PREFIX)) {
+            result = result.substring(BLOCKED_TOPIC_NAME_PREFIX.length()).stripLeading();
+        }
+        return result;
+    }
+
+    /**
      * 重建用户话题并更新本地映射，同时在新话题中发送提示消息并尝试置顶。
      *
      * @param user        用户
@@ -176,7 +229,7 @@ public class OnboardingSupport {
             return;
         }
 
-        createTopic(
+        topicService.createTopic(
                 user.id(),
                 user.username(),
                 user.firstName(),
@@ -188,14 +241,46 @@ public class OnboardingSupport {
         String caption = buildNewUserCaption(user);
         Message sentMessage = sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
         if (sentMessage != null && sentMessage.messageId() != null) {
-            topicService.getTopicByTopicId(threadId).ifPresent(topic -> {
-                topic.setWelcomeMessageId(sentMessage.messageId().longValue());
-                topicService.saveTopic(topic);
+            topicService.getTopicByTopicId(threadId).ifPresent(savedTopic -> {
+                savedTopic.setWelcomeMessageId(sentMessage.messageId().longValue());
+                topicService.saveTopic(savedTopic);
             });
             pinMessage(groupChatId, sentMessage.messageId());
         }
         log.info("重建话题并更新映射完成，userId={}, groupChatId={}, threadId={}, pinnedMessageId={}",
                 user.id(), groupChatId, threadId, sentMessage == null ? null : sentMessage.messageId());
+    }
+
+    /**
+     * 确保用户信息卡片存在并尝试置顶。
+     *
+     * @param groupChatId 群聊 ID 字符串
+     * @param topic       用户话题映射
+     * @param user        用户
+     */
+    public void ensureWelcomeMessagePinned(String groupChatId, Topic topic, User user) {
+        if (topic == null || topic.getTopicId() == null || user == null) {
+            return;
+        }
+
+        Long welcomeMessageId = topic.getWelcomeMessageId();
+        if (welcomeMessageId != null && welcomeMessageId <= Integer.MAX_VALUE) {
+            pinMessage(groupChatId, welcomeMessageId.intValue());
+            return;
+        }
+
+        String caption = buildNewUserCaption(user);
+        Message sentMessage = sendNewUserMessageToTopic(groupChatId, topic.getTopicId(), user, caption);
+        if (sentMessage == null || sentMessage.messageId() == null) {
+            log.warn("补发用户信息卡片失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, topic.getTopicId());
+            return;
+        }
+
+        topic.setWelcomeMessageId(sentMessage.messageId().longValue());
+        topicService.saveTopic(topic);
+        pinMessage(groupChatId, sentMessage.messageId());
+        log.info("已补发并尝试置顶用户信息卡片，userId={}, groupChatId={}, threadId={}, messageId={}",
+                user.id(), groupChatId, topic.getTopicId(), sentMessage.messageId());
     }
 
     /**
@@ -347,11 +432,24 @@ public class OnboardingSupport {
      * @param groupChatId 群聊 ID 字符串
      * @param messageId   消息 ID
      */
-    public void pinMessage(String groupChatId, Integer messageId) {
+    public boolean pinMessage(String groupChatId, Integer messageId) {
+        Long groupChatIdLong = parseChatIdLong(groupChatId);
+        if (groupChatIdLong == null || messageId == null) {
+            return false;
+        }
         try {
-            telegramApiClient.execute(new PinChatMessage(groupChatId, messageId));
+            BaseResponse response = telegramApiClient.execute(
+                    new PinChatMessage(groupChatIdLong, messageId).disableNotification(true)
+            );
+            if (response == null || !response.isOk()) {
+                log.warn("置顶消息失败，groupChatId={}, messageId={}, responseOk={}, error={}",
+                        groupChatId, messageId, response == null ? null : response.isOk(), response == null ? null : response.description());
+                return false;
+            }
+            return true;
         } catch (RuntimeException e) {
             log.warn("置顶消息失败，groupChatId={}, messageId={}", groupChatId, messageId, e);
+            return false;
         }
     }
 

@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BlacklistCommandServiceImpl implements BlacklistCommandService {
 
     private static final long HINT_DELETE_DELAY_MILLIS = 30_000L;
+    private static final long BLOCKED_LIST_DELETE_DELAY_MILLIS = 60_000L;
     private static final long ACTION_DEBOUNCE_MILLIS = 5_000L;
 
     private final TelegramBotProperties telegramBotProperties;
@@ -132,6 +133,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         userService.block(targetUserId);
         sendBlockedNotice(targetUserId);
         Topic refreshedTopic = topic == null ? findTopicByUserId(targetUserId) : topic;
+        onboardingSupport.syncBlockedTopicName(refreshedTopic, true);
         refreshTopicKeyboard(chat.id(), refreshedTopic);
         refreshSourceKeyboard(chat.id(), message, refreshedTopic, deleteSourceMessage);
         sendHint(chat.id(), message.messageThreadId(), "已拉黑用户：" + targetUserId, true);
@@ -159,6 +161,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         userService.unblock(targetUserId);
         sendUnblockedNotice(targetUserId);
         Topic refreshedTopic = topic == null ? findTopicByUserId(targetUserId) : topic;
+        onboardingSupport.syncBlockedTopicName(refreshedTopic, false);
         refreshTopicKeyboard(chat.id(), refreshedTopic);
         refreshSourceKeyboard(chat.id(), message, refreshedTopic, deleteSourceMessage);
         sendHint(chat.id(), message.messageThreadId(), "已取消拉黑用户：" + targetUserId, true);
@@ -182,6 +185,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
             SendResponse response = telegramApiClient.execute(req);
             if (response != null && response.message() != null && response.message().messageId() != null) {
                 lastListMessageIds.put(listKey(chat.id(), threadId), response.message().messageId());
+                telegramApiClient.scheduleDelete(chat.id(), response.message().messageId(), BLOCKED_LIST_DELETE_DELAY_MILLIS);
             }
         } catch (RuntimeException e) {
             log.warn("发送黑名单文本列表失败，chatId={}, threadId={}", chat.id(), threadId, e);
@@ -191,7 +195,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
 
     private String buildBlockedListText(List<User> blockedUsers) {
         if (blockedUsers == null || blockedUsers.isEmpty()) {
-            return "✅ 当前没有已拉黑的用户。\n\n" + buildCommandHelpText();
+            return "✅ 当前没有已拉黑的用户。\n\n" + buildCommandHelpText() + buildBlockedListAutoDeleteHint();
         }
 
         StringBuilder text = new StringBuilder("🧾 黑名单成员\n\n");
@@ -210,8 +214,12 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
                     .append(user.getUserId())
                     .append("\n");
         }
-        text.append("\n").append(buildCommandHelpText());
+        text.append("\n").append(buildCommandHelpText()).append(buildBlockedListAutoDeleteHint());
         return text.toString();
+    }
+
+    private String buildBlockedListAutoDeleteHint() {
+        return "\n\n提示：这条黑名单列表消息将在 1 分钟后自动删除。";
     }
 
     private String buildCommandHelpText() {

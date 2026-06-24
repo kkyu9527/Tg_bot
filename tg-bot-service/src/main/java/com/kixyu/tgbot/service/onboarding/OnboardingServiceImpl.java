@@ -136,6 +136,7 @@ public class OnboardingServiceImpl implements OnboardingService {
 
                 log.info("已存在有效用户话题映射，跳过创建，userId={}, groupChatId={}, topicId={}",
                         user.id(), groupChatId, existingTopic.getTopicId());
+                onboardingSupport.ensureWelcomeMessagePinned(groupChatId, existingTopic, user);
                 return;
             }
 

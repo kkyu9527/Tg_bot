@@ -1,7 +1,6 @@
 package com.kixyu.tgbot.support;
 
 import com.kixyu.tgbot.domain.entity.Topic;
-import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.user.UserService;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
@@ -15,25 +14,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class UserConfigKeyboardFactory {
 
-    private final TopicService topicService;
     private final UserService userService;
-
-    /**
-     * 根据话题 ID 和群聊 ID 构建配置按钮键盘。
-     *
-     * @param topicId     话题 ID
-     * @param groupChatId 群聊 ID
-     * @return 配置按钮键盘；未找到话题时返回空键盘
-     */
-    public InlineKeyboardMarkup buildForTopic(Long topicId, String groupChatId) {
-        Topic topic = null;
-        if (topicId != null && groupChatId != null) {
-            topic = topicService.getTopicByTopicId(topicId)
-                    .filter(t -> groupChatId.equals(t.getChatId()))
-                    .orElse(null);
-        }
-        return topic == null ? new InlineKeyboardMarkup() : buildForTopic(topic);
-    }
 
     /**
      * 根据话题实体构建配置按钮键盘。
@@ -51,7 +32,7 @@ public class UserConfigKeyboardFactory {
         if (userId != null) {
             InlineKeyboardButton blockButton = buildBlockButton(userId);
             InlineKeyboardButton listButton = new InlineKeyboardButton("已拉黑用户列表")
-                    .callbackData("bl:list:0");
+                    .callbackData("bl:list_open:0");
             markup.addRow(blockButton, listButton);
         }
 

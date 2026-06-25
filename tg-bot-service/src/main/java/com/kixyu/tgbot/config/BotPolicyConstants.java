@@ -25,6 +25,16 @@ public final class BotPolicyConstants {
     public static final Duration BLACKLIST_ACTION_DEBOUNCE_WINDOW = Duration.ofSeconds(5);
 
     /**
+     * Telegram 按钮回调防抖窗口，避免重复点击造成重复执行。
+     */
+    public static final Duration BUTTON_CALLBACK_DEBOUNCE_WINDOW = Duration.ofSeconds(5);
+
+    /**
+     * 黑名单管理面板每页展示的用户数量。
+     */
+    public static final int BLACKLIST_PAGE_SIZE = 20;
+
+    /**
      * 新用户在达到该转发消息数量前处于低信任期。
      */
     public static final int LOW_TRUST_MESSAGE_LIMIT = 10;

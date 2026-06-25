@@ -11,8 +11,10 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.UserProfilePhotos;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.CreateForumTopic;
+import com.pengrad.telegrambot.request.EditMessageCaption;
+import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
+import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.EditForumTopic;
 import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.GetUserProfilePhotos;
@@ -41,7 +43,6 @@ public class OnboardingSupport {
     private final TelegramApiClient telegramApiClient;
     private final TopicService topicService;
     private final UserService userService;
-    private final UserConfigKeyboardFactory userConfigKeyboardFactory;
 
     /**
      * 向用户私聊窗口发送欢迎消息。
@@ -194,7 +195,7 @@ public class OnboardingSupport {
             return;
         }
 
-        topicService.createTopic(
+        Topic createdTopic = topicService.createTopic(
                 user.id(),
                 user.username(),
                 user.firstName(),
@@ -203,12 +204,12 @@ public class OnboardingSupport {
                 groupChatId
         );
 
-        String caption = buildNewUserCaption(user);
+        String caption = buildTopicCaption(createdTopic);
         Message sentMessage = sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
         if (sentMessage != null && sentMessage.messageId() != null) {
-            topicService.getTopicByTopicId(threadId).ifPresent(savedTopic -> {
-                savedTopic.setWelcomeMessageId(sentMessage.messageId().longValue());
-                topicService.saveTopic(savedTopic);
+            topicService.getTopicByTopicId(threadId).ifPresent(topic -> {
+                topic.setWelcomeMessageId(sentMessage.messageId().longValue());
+                topicService.saveTopic(topic);
             });
             pinMessage(groupChatId, sentMessage.messageId());
         }
@@ -230,11 +231,12 @@ public class OnboardingSupport {
 
         Long welcomeMessageId = topic.getWelcomeMessageId();
         if (welcomeMessageId != null && welcomeMessageId <= Integer.MAX_VALUE) {
+            refreshWelcomeMessage(topic);
             pinMessage(groupChatId, welcomeMessageId.intValue());
             return;
         }
 
-        String caption = buildNewUserCaption(user);
+        String caption = buildTopicCaption(topic);
         Message sentMessage = sendNewUserMessageToTopic(groupChatId, topic.getTopicId(), user, caption);
         if (sentMessage == null || sentMessage.messageId() == null) {
             log.warn("补发用户信息卡片失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, topic.getTopicId());
@@ -292,7 +294,6 @@ public class OnboardingSupport {
         }
 
         byte[] avatarBytes = downloadUserAvatarBytes(user.id());
-        InlineKeyboardMarkup markup = userConfigKeyboardFactory.buildForTopic(messageThreadId, groupChatId);
         if (avatarBytes != null && avatarBytes.length > 0) {
             try {
                 SendResponse response = telegramApiClient.execute(
@@ -300,7 +301,6 @@ public class OnboardingSupport {
                                 .fileName("avatar.jpg")
                                 .caption(caption)
                                 .messageThreadId(messageThreadId)
-                                .replyMarkup(markup)
                 );
                 return response == null ? null : response.message();
             } catch (RuntimeException e) {
@@ -313,7 +313,6 @@ public class OnboardingSupport {
             SendResponse response = telegramApiClient.execute(
                     telegramApiClient.createSendMessage(groupChatIdLong, caption)
                             .messageThreadId(messageThreadId)
-                            .replyMarkup(markup)
             );
             return response == null ? null : response.message();
         } catch (RuntimeException e) {
@@ -347,22 +346,112 @@ public class OnboardingSupport {
     }
 
     /**
-     * 构建新用户提示消息文案。
+     * 刷新置顶用户信息卡片内容，并清理旧的 inline 按钮。
      *
-     * @param user 用户
-     * @return 格式化后的提示文本
+     * @param topic 话题实体
      */
-    public String buildNewUserCaption(User user) {
-        String displayName = Topic.generateTopicName(user.firstName(), user.lastName(), user.username(), user.id());
-
-        StringBuilder text = new StringBuilder();
-        text.append("✨ 新用户已开始对话\n\n");
-        text.append("👤 名字：").append(displayName).append("\n");
-        text.append("🆔 用户 ID：").append(user.id());
-        if (user.username() != null && !user.username().isBlank()) {
-            text.append("\n📛 用户名：@").append(user.username());
+    public void refreshWelcomeMessage(Topic topic) {
+        if (topic == null || topic.getChatId() == null || topic.getWelcomeMessageId() == null || topic.getWelcomeMessageId() > Integer.MAX_VALUE) {
+            return;
         }
+        Long chatId = parseChatIdLong(topic.getChatId());
+        if (chatId == null) {
+            return;
+        }
+        Integer messageId = topic.getWelcomeMessageId().intValue();
+        String text = buildTopicCaption(topic);
+        boolean updated = tryEditWelcomeCaption(chatId, messageId, text);
+        if (!updated) {
+            updated = tryEditWelcomeText(chatId, messageId, text);
+        }
+        clearWelcomeKeyboard(chatId, messageId);
+        if (!updated) {
+            log.warn("刷新用户信息卡片内容失败，chatId={}, messageId={}, topicId={}", chatId, messageId, topic.getTopicId());
+        }
+    }
+
+    /**
+     * 根据话题状态构建用户信息卡片文案。
+     *
+     * @param topic 话题实体
+     * @return      卡片文案
+     */
+    public String buildTopicCaption(Topic topic) {
+        String displayName = Topic.generateTopicName(topic.getFirstName(), topic.getLastName(), topic.getUsername(), topic.getUserId());
+        boolean blocked = userService.isBlocked(topic.getUserId());
+        boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
+        return buildUserCardText(displayName, topic.getUserId(), topic.getUsername(), blocked, fullMode);
+    }
+
+    /**
+     * 构建用户信息卡片文案。
+     *
+     * @param displayName 展示名称
+     * @param userId      用户 ID
+     * @param username    用户名
+     * @param blocked     是否已拉黑
+     * @param fullMode    是否为全消息模式
+     * @return            卡片文案
+     */
+    private String buildUserCardText(String displayName, Long userId, String username, boolean blocked, boolean fullMode) {
+        StringBuilder text = new StringBuilder();
+        text.append("✨ 用户会话卡片\n\n");
+        text.append("👤 名字：").append(displayName).append("\n");
+        text.append("🆔 用户 ID：").append(userId);
+        if (username != null && !username.isBlank()) {
+            text.append("\n📛 用户名：@").append(username);
+        }
+        text.append("\n\n🚦 转发状态：").append(blocked ? "已拉黑，不会转发" : "正常，会转发");
+        text.append("\n💬 消息模式：").append(fullMode ? "全消息模式" : "文字模式");
         return text.toString();
+    }
+
+    /**
+     * 尝试按图片/媒体消息标题刷新用户信息卡片。
+     *
+     * @param chatId    聊天 ID
+     * @param messageId 消息 ID
+     * @param text      卡片文案
+     * @return          刷新成功时返回 true，否则返回 false
+     */
+    private boolean tryEditWelcomeCaption(Long chatId, Integer messageId, String text) {
+        try {
+            BaseResponse response = telegramApiClient.execute(new EditMessageCaption(chatId, messageId).caption(text));
+            return response != null && (response.isOk() || TelegramApiErrorUtil.looksLikeNotModified(response));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 尝试按文本消息刷新用户信息卡片。
+     *
+     * @param chatId    聊天 ID
+     * @param messageId 消息 ID
+     * @param text      卡片文案
+     * @return          刷新成功时返回 true，否则返回 false
+     */
+    private boolean tryEditWelcomeText(Long chatId, Integer messageId, String text) {
+        try {
+            BaseResponse response = telegramApiClient.execute(new EditMessageText(chatId, messageId, text));
+            return response != null && (response.isOk() || TelegramApiErrorUtil.looksLikeNotModified(response));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 清理用户信息卡片上历史遗留的 inline 按钮。
+     *
+     * @param chatId    聊天 ID
+     * @param messageId 消息 ID
+     */
+    private void clearWelcomeKeyboard(Long chatId, Integer messageId) {
+        try {
+            telegramApiClient.execute(new EditMessageReplyMarkup(chatId, messageId).replyMarkup(null));
+        } catch (RuntimeException e) {
+            log.debug("清理用户信息卡片按钮失败，chatId={}, messageId={}", chatId, messageId, e);
+        }
     }
 
     /**

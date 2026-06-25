@@ -1,11 +1,13 @@
 package com.kixyu.tgbot.service.callback;
 
+import com.kixyu.tgbot.config.BotPolicyConstants;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.blacklist.BlacklistCommandService;
 import com.kixyu.tgbot.service.onboarding.OnboardingService;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.verification.VerificationService;
+import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.support.UserConfigKeyboardFactory;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,9 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
 import com.pengrad.telegrambot.response.SendResponse;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Telegram 按钮回调分发服务实现。
@@ -28,9 +33,12 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
     private static final String BLOCK_CALLBACK_PREFIX = "bl:";
     private static final String MODE_CALLBACK_PREFIX = "md:";
 
+    private final Map<String, Long> recentCallbackTimes = new ConcurrentHashMap<>();
+
     private final TelegramApiClient telegramApiClient;
     private final TelegramBotProperties telegramBotProperties;
     private final TopicService topicService;
+    private final OnboardingSupport onboardingSupport;
     private final UserConfigKeyboardFactory userConfigKeyboardFactory;
     private final BlacklistCommandService blacklistCommandService;
     private final VerificationService verificationService;
@@ -48,6 +56,10 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
         }
         String data = callbackQuery.data();
         if (data == null || data.isBlank()) {
+            answer(callbackQuery, null);
+            return;
+        }
+        if (isDuplicateCallback(callbackQuery, data)) {
             answer(callbackQuery, null);
             return;
         }
@@ -80,6 +92,27 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
             return message.chat().id();
         }
         return callbackQuery.from() == null ? null : callbackQuery.from().id();
+    }
+
+    /**
+     * 判断按钮回调是否为短时间内重复点击。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param data          回调数据
+     * @return              重复点击时返回 true，否则返回 false
+     */
+    private boolean isDuplicateCallback(CallbackQuery callbackQuery, String data) {
+        Long userId = callbackQuery.from() == null ? null : callbackQuery.from().id();
+        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
+        Message message = rawMessage instanceof Message m ? m : null;
+        Integer messageId = message == null ? null : message.messageId();
+        String key = userId + ":" + messageId + ":" + data;
+        long now = System.currentTimeMillis();
+        Long previous = recentCallbackTimes.put(key, now);
+        if (previous == null) {
+            return false;
+        }
+        return now - previous < BotPolicyConstants.millis(BotPolicyConstants.BUTTON_CALLBACK_DEBOUNCE_WINDOW);
     }
 
     /**
@@ -204,17 +237,8 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
         Long chatId = message.chat().id();
         Integer messageId = message.messageId();
 
+        onboardingSupport.refreshWelcomeMessage(topic);
         InlineKeyboardMarkup markup = userConfigKeyboardFactory.buildForTopic(topic);
-        Long welcomeMessageId = topic.getWelcomeMessageId();
-        if (welcomeMessageId != null && welcomeMessageId <= Integer.MAX_VALUE) {
-            try {
-                EditMessageReplyMarkup editWelcome =
-                        new EditMessageReplyMarkup(chatId, welcomeMessageId.intValue()).replyMarkup(markup);
-                telegramApiClient.execute(editWelcome);
-            } catch (RuntimeException e) {
-                log.warn("更新新用户卡片消息模式按钮状态失败，chatId={}, messageId={}", chatId, welcomeMessageId, e);
-            }
-        }
         EditMessageReplyMarkup edit = new EditMessageReplyMarkup(chatId, messageId).replyMarkup(markup);
         telegramApiClient.execute(edit);
     }

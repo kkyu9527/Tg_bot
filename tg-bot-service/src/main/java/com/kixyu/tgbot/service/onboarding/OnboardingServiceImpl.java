@@ -175,7 +175,7 @@ class OnboardingServiceImpl implements OnboardingService {
             }
             log.info("创建群组话题成功，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId);
 
-            topicService.createTopic(
+            Topic createdTopic = topicService.createTopic(
                     user.id(),
                     user.username(),
                     user.firstName(),
@@ -185,7 +185,7 @@ class OnboardingServiceImpl implements OnboardingService {
             );
             log.info("保存用户话题映射成功，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId);
 
-            String caption = onboardingSupport.buildNewUserCaption(user);
+            String caption = onboardingSupport.buildTopicCaption(createdTopic);
 
             Message sentMessage = onboardingSupport.sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
             if (sentMessage == null || sentMessage.messageId() == null) {

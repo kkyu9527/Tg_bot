@@ -80,7 +80,7 @@ class RelayTopicManager {
         );
 
         try {
-            String caption = onboardingSupport.buildNewUserCaption(user);
+            String caption = onboardingSupport.buildTopicCaption(topic);
             Message sentMessage = onboardingSupport.sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
             if (sentMessage != null && sentMessage.messageId() != null) {
                 topic.setWelcomeMessageId(sentMessage.messageId().longValue());

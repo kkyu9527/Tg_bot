@@ -11,21 +11,10 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
-public class MessageServiceImpl implements MessageService {
+@Transactional(readOnly = true)
+class MessageServiceImpl implements MessageService {
 
     private final MessageRepository messageRepository;
-
-    /**
-     * 保存一条消息实体到数据库。
-     *
-     * @param message 消息实体
-     * @return 持久化后的消息实体
-     */
-    @Override
-    public Message saveMessage(Message message) {
-        return messageRepository.save(message);
-    }
 
     /**
      * 根据话题 ID 查询该话题下的所有消息。
@@ -36,30 +25,6 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public List<Message> getMessagesByTopicId(Long topicId) {
         return messageRepository.findByTopicId(topicId);
-    }
-
-    /**
-     * 根据话题 ID 和内容类型查询消息。
-     *
-     * @param topicId     话题 ID
-     * @param contentType 内容类型
-     * @return 消息列表
-     */
-    @Override
-    public List<Message> getMessagesByTopicIdAndContentType(Long topicId, Message.ContentType contentType) {
-        return messageRepository.findByTopicIdAndContentType(topicId, contentType);
-    }
-
-    /**
-     * 根据话题 ID 和消息类型查询消息。
-     *
-     * @param topicId     话题 ID
-     * @param messageType 消息类型
-     * @return 消息列表
-     */
-    @Override
-    public List<Message> getMessagesByTopicIdAndMessageType(Long topicId, Message.MessageType messageType) {
-        return messageRepository.findByTopicIdAndMessageType(topicId, messageType);
     }
 
     /**
@@ -82,18 +47,6 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public Optional<Message> getMessageByForwardedMessageId(Long forwardedMessageId) {
         return messageRepository.findByForwardedMessageId(forwardedMessageId);
-    }
-
-    /**
-     * 根据话题 ID 和发送者 ID 查询消息。
-     *
-     * @param topicId  话题 ID
-     * @param senderId 发送者 ID
-     * @return 消息列表
-     */
-    @Override
-    public List<Message> getMessagesByTopicIdAndSenderId(Long topicId, Long senderId) {
-        return messageRepository.findByTopicIdAndSenderId(topicId, senderId);
     }
 
     /**
@@ -123,56 +76,14 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
-     * 根据媒体组 ID 查询消息。
-     *
-     * @param mediaGroupId 媒体组 ID
-     * @return 消息列表
-     */
-    @Override
-    public List<Message> getMessagesByMediaGroupId(String mediaGroupId) {
-        return messageRepository.findByMediaGroupId(mediaGroupId);
-    }
-
-    /**
-     * 根据内容类型查询消息。
-     *
-     * @param contentType 内容类型
-     * @return 消息列表
-     */
-    @Override
-    public List<Message> getMessagesByContentType(Message.ContentType contentType) {
-        return messageRepository.findByContentType(contentType);
-    }
-
-    /**
      * 删除指定话题下的所有消息。
      *
      * @param topicId 话题 ID
-     */
+    */
     @Override
+    @Transactional
     public void deleteMessagesByTopicId(Long topicId) {
         messageRepository.deleteByTopicId(topicId);
-    }
-
-    /**
-     * 删除指定话题中某个发送者的所有消息。
-     *
-     * @param topicId  话题 ID
-     * @param senderId 发送者 ID
-     */
-    @Override
-    public void deleteMessagesByTopicIdAndSenderId(Long topicId, Long senderId) {
-        messageRepository.deleteByTopicIdAndSenderId(topicId, senderId);
-    }
-
-    /**
-     * 删除指定媒体组的所有消息。
-     *
-     * @param mediaGroupId 媒体组 ID
-     */
-    @Override
-    public void deleteMessagesByMediaGroupId(String mediaGroupId) {
-        messageRepository.deleteByMediaGroupId(mediaGroupId);
     }
 
     /**
@@ -188,12 +99,12 @@ public class MessageServiceImpl implements MessageService {
      * @param senderLastName     发送者姓
      * @param originalMessageId  原始消息 ID
      * @param forwardedMessageId 机器人转发后的消息 ID
-     * @return 持久化后的消息实体
-     */
+    */
     @Override
-    public Message createMessage(Long topicId, Message.MessageType messageType, Message.ContentType contentType,
-                                 Long senderId, String senderUsername, String senderFirstName, String senderLastName,
-                                 Long originalMessageId, Long forwardedMessageId) {
+    @Transactional
+    public void createMessage(Long topicId, Message.MessageType messageType, Message.ContentType contentType,
+                              Long senderId, String senderUsername, String senderFirstName, String senderLastName,
+                              Long originalMessageId, Long forwardedMessageId) {
 
         Message message = Message.builder()
                 .topicId(topicId)
@@ -207,7 +118,7 @@ public class MessageServiceImpl implements MessageService {
                 .forwardedMessageId(forwardedMessageId)
                 .build();
 
-        return saveMessage(message);
+        messageRepository.save(message);
     }
 
     /**
@@ -224,13 +135,13 @@ public class MessageServiceImpl implements MessageService {
      * @param senderLastName     发送者姓
      * @param originalMessageId  原始消息 ID
      * @param forwardedMessageId 机器人转发后的消息 ID
-     * @return 持久化后的消息实体
-     */
+    */
     @Override
-    public Message createMediaGroupMessage(Long topicId, Message.MessageType messageType, Message.ContentType contentType,
-                                           String mediaGroupId,
-                                           Long senderId, String senderUsername, String senderFirstName, String senderLastName,
-                                           Long originalMessageId, Long forwardedMessageId) {
+    @Transactional
+    public void createMediaGroupMessage(Long topicId, Message.MessageType messageType, Message.ContentType contentType,
+                                        String mediaGroupId,
+                                        Long senderId, String senderUsername, String senderFirstName, String senderLastName,
+                                        Long originalMessageId, Long forwardedMessageId) {
 
         Message message = Message.builder()
                 .topicId(topicId)
@@ -245,6 +156,6 @@ public class MessageServiceImpl implements MessageService {
                 .forwardedMessageId(forwardedMessageId)
                 .build();
 
-        return saveMessage(message);
+        messageRepository.save(message);
     }
 }

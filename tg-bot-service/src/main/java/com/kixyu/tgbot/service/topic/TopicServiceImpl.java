@@ -8,15 +8,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 @Slf4j
-public class TopicServiceImpl implements TopicService {
+class TopicServiceImpl implements TopicService {
 
     private final TopicRepository topicRepository;
     private final MessageService messageService;
@@ -26,21 +25,11 @@ public class TopicServiceImpl implements TopicService {
      *
      * @param topic 话题实体
      * @return 持久化后的话题实体
-     */
+    */
     @Override
+    @Transactional
     public Topic saveTopic(Topic topic) {
         return topicRepository.save(topic);
-    }
-
-    /**
-     * 根据用户 ID 查询其所有话题。
-     *
-     * @param userId 用户 ID
-     * @return 话题列表
-     */
-    @Override
-    public List<Topic> getTopicsByUserId(Long userId) {
-        return topicRepository.findByUserId(userId);
     }
 
     /**
@@ -67,33 +56,13 @@ public class TopicServiceImpl implements TopicService {
     }
 
     /**
-     * 根据聊天 ID 查询该聊天下所有话题。
-     *
-     * @param chatId 聊天 ID
-     * @return 话题列表
-     */
-    @Override
-    public List<Topic> getTopicsByChatId(String chatId) {
-        return topicRepository.findByChatId(chatId);
-    }
-
-    /**
-     * 删除指定用户在所有聊天中的话题。
-     *
-     * @param userId 用户 ID
-     */
-    @Override
-    public void deleteTopicsByUserId(Long userId) {
-        topicRepository.deleteByUserId(userId);
-    }
-
-    /**
      * 删除指定聊天中的某个话题。
      *
      * @param topicId 话题 ID
      * @param chatId  聊天 ID
-     */
+    */
     @Override
+    @Transactional
     public void deleteTopicByTopicIdAndChatId(Long topicId, String chatId) {
         topicRepository.deleteByTopicIdAndChatId(topicId, chatId);
     }
@@ -108,8 +77,9 @@ public class TopicServiceImpl implements TopicService {
      * @param topicId   Telegram 话题 ID
      * @param chatId    聊天 ID
      * @return          持久化后的话题实体
-     */
+    */
     @Override
+    @Transactional
     public Topic createTopic(Long userId, String username, String firstName, String lastName,
                             Long topicId, String chatId) {
         
@@ -140,8 +110,9 @@ public class TopicServiceImpl implements TopicService {
      * @param firstName 名
      * @param lastName  姓
      * @return          已存在或更新后的话题实体
-     */
+    */
     @Override
+    @Transactional
     public Topic getOrCreateTopicByUserAndChat(Long userId, String chatId, String username, String firstName, String lastName) {
         // 先尝试获取已存在的话题
         Optional<Topic> existingTopicOpt = getTopicByUserIdAndChatId(userId, chatId);
@@ -181,8 +152,9 @@ public class TopicServiceImpl implements TopicService {
      *
      * @param userId 用户 ID
      * @param chatId 聊天 ID
-     */
+    */
     @Override
+    @Transactional
     public void handleTopicDeletion(Long userId, String chatId) {
         // 查找该用户在此聊天中的话题
         Optional<Topic> topicOpt = getTopicByUserIdAndChatId(userId, chatId);
@@ -200,23 +172,4 @@ public class TopicServiceImpl implements TopicService {
         }
     }
 
-    /**
-     * 重新创建话题：删除旧话题及其消息后，创建新话题。
-     *
-     * @param userId        用户 ID
-     * @param chatId        聊天 ID
-     * @param username      用户名
-     * @param firstName     名
-     * @param lastName      姓
-     * @param newTopicId    新的话题 ID
-     * @return              新创建的话题实体
-     */
-    @Override
-    public Topic recreateTopic(Long userId, String chatId, String username, String firstName, String lastName, Long newTopicId) {
-        // 先处理旧话题的删除
-        handleTopicDeletion(userId, chatId);
-        
-        // 创建新话题
-        return createTopic(userId, username, firstName, lastName, newTopicId, chatId);
-    }
 }

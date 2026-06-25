@@ -10,7 +10,7 @@ import com.pengrad.telegrambot.model.User;
 
 @Service
 @RequiredArgsConstructor
-public class BotCommonServiceImpl implements BotCommonService {
+class BotCommonServiceImpl implements BotCommonService {
 
     private final TopicService topicService;
     private final MessageService messageService;
@@ -41,11 +41,10 @@ public class BotCommonServiceImpl implements BotCommonService {
      * @param topicId               所属话题 ID
      * @param userMessageId         用户原始消息 ID
      * @param botForwardedMessageId 机器人转发到群话题后的消息 ID
-     * @return 持久化后的消息实体
      */
     @Override
-    public Message createUserMessage(User user, Message.ContentType contentType, Long topicId, Long userMessageId, Long botForwardedMessageId) {
-        return messageService.createMessage(
+    public void createUserMessage(User user, Message.ContentType contentType, Long topicId, Long userMessageId, Long botForwardedMessageId) {
+        messageService.createMessage(
                 topicId,
                 Message.MessageType.USER_MESSAGE,
                 contentType,
@@ -67,11 +66,10 @@ public class BotCommonServiceImpl implements BotCommonService {
      * @param topicId               所属话题 ID
      * @param userMessageId         用户原始消息 ID
      * @param botForwardedMessageId 机器人转发到群话题后的消息 ID
-     * @return 持久化后的消息实体
      */
     @Override
-    public Message createUserMediaGroupMessage(User user, String mediaGroupId, Message.ContentType contentType, Long topicId, Long userMessageId, Long botForwardedMessageId) {
-        return messageService.createMediaGroupMessage(
+    public void createUserMediaGroupMessage(User user, String mediaGroupId, Message.ContentType contentType, Long topicId, Long userMessageId, Long botForwardedMessageId) {
+        messageService.createMediaGroupMessage(
                 topicId,
                 Message.MessageType.USER_MESSAGE,
                 contentType,
@@ -93,11 +91,10 @@ public class BotCommonServiceImpl implements BotCommonService {
      * @param topicId            所属话题 ID
      * @param originalMessageId  原始消息 ID（主人发送的消息）
      * @param forwardedMessageId 机器人回流给用户后的消息 ID
-     * @return 持久化后的消息实体
      */
     @Override
-    public Message createOwnerReplyMessage(User owner, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId) {
-        return messageService.createMessage(
+    public void createOwnerReplyMessage(User owner, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId) {
+        messageService.createMessage(
                 topicId,
                 Message.MessageType.OWNER_MESSAGE,
                 contentType,
@@ -119,11 +116,10 @@ public class BotCommonServiceImpl implements BotCommonService {
      * @param topicId            所属话题 ID
      * @param originalMessageId  原始消息 ID（主人发送的消息）
      * @param forwardedMessageId 机器人回流给用户后的消息 ID
-     * @return 持久化后的消息实体
      */
     @Override
-    public Message createOwnerMediaGroupReplyMessage(User owner, String mediaGroupId, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId) {
-        return messageService.createMediaGroupMessage(
+    public void createOwnerMediaGroupReplyMessage(User owner, String mediaGroupId, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId) {
+        messageService.createMediaGroupMessage(
                 topicId,
                 Message.MessageType.OWNER_MESSAGE,
                 contentType,
@@ -137,55 +133,4 @@ public class BotCommonServiceImpl implements BotCommonService {
         );
     }
 
-    /**
-     * 创建并持久化一条机器人转发消息的映射记录。
-     *
-     * @param contentType        消息内容类型
-     * @param sender             原始发送者
-     * @param topicId            所属话题 ID
-     * @param originalMessageId  原始消息 ID
-     * @param forwardedMessageId 机器人转发后的消息 ID
-     * @return 持久化后的消息实体
-     */
-    @Override
-    public Message createBotForwardedMessage(Message.ContentType contentType, User sender, Long topicId, Long originalMessageId, Long forwardedMessageId) {
-        return messageService.createMessage(
-                topicId,
-                Message.MessageType.BOT_FORWARDED_MESSAGE,
-                contentType,
-                sender.id(),
-                sender.username(),
-                sender.firstName(),
-                sender.lastName(),
-                originalMessageId,
-                forwardedMessageId
-        );
-    }
-
-    /**
-     * 创建并持久化一条机器人转发媒体组消息的映射记录。
-     *
-     * @param mediaGroupId       媒体组 ID
-     * @param contentType        消息内容类型
-     * @param sender             原始发送者
-     * @param topicId            所属话题 ID
-     * @param originalMessageId  原始消息 ID
-     * @param forwardedMessageId 机器人转发后的消息 ID
-     * @return 持久化后的消息实体
-     */
-    @Override
-    public Message createBotForwardedMediaGroupMessage(String mediaGroupId, Message.ContentType contentType, User sender, Long topicId, Long originalMessageId, Long forwardedMessageId) {
-        return messageService.createMediaGroupMessage(
-                topicId,
-                Message.MessageType.BOT_FORWARDED_MESSAGE,
-                contentType,
-                mediaGroupId,
-                sender.id(),
-                sender.username(),
-                sender.firstName(),
-                sender.lastName(),
-                originalMessageId,
-                forwardedMessageId
-        );
-    }
 }

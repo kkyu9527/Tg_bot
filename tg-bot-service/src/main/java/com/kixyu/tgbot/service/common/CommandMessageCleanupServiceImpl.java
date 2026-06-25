@@ -10,23 +10,17 @@ import com.kixyu.tgbot.support.OnboardingSupport;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.request.DeleteMessage;
-import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.response.BaseResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class OnboardingCommonServiceImpl implements OnboardingCommonService {
-
-    private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
+class CommandMessageCleanupServiceImpl implements CommandMessageCleanupService {
 
     private final OnboardingSupport onboardingSupport;
     private final TelegramBotProperties telegramBotProperties;
@@ -173,44 +167,17 @@ public class OnboardingCommonServiceImpl implements OnboardingCommonService {
      *
      * @param groupId  群聊 ID
      * @param threadId 话题线程 ID
-     */
+    */
     @Override
     public void deleteForumTopic(Long groupId, Long threadId) {
-        String token = telegramBotProperties.getToken();
-        if (token == null || token.isBlank()) {
-            return;
-        }
         if (groupId == null || threadId == null) {
             return;
         }
 
-        String url = "https://api.telegram.org/bot" + token + "/deleteForumTopic"
-                + "?chat_id=" + groupId
-                + "&message_thread_id=" + threadId;
-
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
-        try {
-            HttpResponse<Void> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.discarding());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("deleteForumTopic http status " + response.statusCode());
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        BaseResponse response = telegramApiClient.deleteForumTopic(groupId, threadId);
+        if (response == null || !response.isOk()) {
+            throw new IllegalStateException("deleteForumTopic failed: " + (response == null ? null : response.description()));
         }
-    }
-
-    /**
-     * 通过 Telegram Bot API 向指定会话发送纯文本消息。
-     *
-     * @param chatId 会话 ID，可以是群聊或私聊
-     * @param text   文本内容
-     */
-    @Override
-    public void sendText(Long chatId, String text) {
-        if (chatId == null) {
-            return;
-        }
-        telegramApiClient.execute(new SendMessage(chatId.longValue(), text));
     }
 
     /**

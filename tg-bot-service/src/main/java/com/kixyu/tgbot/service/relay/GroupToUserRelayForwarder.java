@@ -10,7 +10,6 @@ import com.pengrad.telegrambot.model.request.InputMedia;
 import com.pengrad.telegrambot.model.request.ReplyParameters;
 import com.pengrad.telegrambot.request.CopyMessage;
 import com.pengrad.telegrambot.request.SendMediaGroup;
-import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.BaseResponse;
 import com.pengrad.telegrambot.response.MessageIdResponse;
 import com.pengrad.telegrambot.response.MessagesResponse;
@@ -29,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class GroupToUserRelayForwarder {
+class GroupToUserRelayForwarder {
 
     private final TelegramApiClient telegramApiClient;
     private final TelegramBotProperties telegramBotProperties;
@@ -48,7 +47,7 @@ public class GroupToUserRelayForwarder {
      *
      * @param groupMessage 群内消息
      */
-    public void relay(Message groupMessage) {
+    void relay(Message groupMessage) {
         relayInternal(groupMessage, true);
     }
 
@@ -126,7 +125,7 @@ public class GroupToUserRelayForwarder {
             return;
         }
 
-        botService.handleOwnerReplyInTopic(groupMessage.from(), contentType, threadId, groupChatId, originalMessageId, forwardedMessageId);
+        botService.handleOwnerReplyInTopic(groupMessage.from(), contentType, threadId, originalMessageId, forwardedMessageId);
         log.info("回流群话题消息成功，threadId={}, groupMessageId={}, userMessageId={}, userId={}",
                 threadId, originalMessageId, forwardedMessageId, userId);
     }
@@ -230,7 +229,6 @@ public class GroupToUserRelayForwarder {
                     context.mediaGroupId(),
                     ContentType.MEDIA_GROUP,
                     context.threadId(),
-                    context.groupChatId(),
                     originalMessageId,
                     forwardedMessageId
             );
@@ -275,9 +273,9 @@ public class GroupToUserRelayForwarder {
         try {
             String text = "🚫 提示\n\n无法给该用户发送消息，可能已拉黑机器人或账号不可用。\nuserId = " + userId + "。";
             SendResponse response = telegramApiClient.execute(
-                    new SendMessage(groupId.longValue(), text).messageThreadId(threadId.intValue())
+                    telegramApiClient.createSendMessage(groupId, text).messageThreadId(threadId.intValue())
             );
-            telegramApiClient.scheduleDeleteIfOk(groupId, response, 30_000L);
+            telegramApiClient.scheduleDeleteIfOk(groupId, response);
         } catch (RuntimeException e) {
             log.warn("发送“用户可能拉黑机器人”提示失败，groupId={}, threadId={}, userId={}", groupId, threadId, userId, e);
         }

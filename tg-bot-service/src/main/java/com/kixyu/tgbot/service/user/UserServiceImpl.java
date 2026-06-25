@@ -11,9 +11,9 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 @Slf4j
-public class UserServiceImpl implements UserService {
+class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
 
@@ -32,19 +32,19 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 检查用户是否已通过人机验证
+     * 检查用户是否未通过人机验证
      *
      * @param userId 用户 ID
-     * @return       如果用户已验证则返回 true，否则返回 false
+     * @return       如果用户未验证则返回 true，否则返回 false
      */
     @Override
-    public boolean isVerified(Long userId) {
+    public boolean isUnverified(Long userId) {
         if (userId == null) {
-            return false;
+            return true;
         }
         return userRepository.findByUserId(userId)
-                .map(user -> Boolean.TRUE.equals(user.getVerified()))
-                .orElse(false);
+                .map(user -> !Boolean.TRUE.equals(user.getVerified()))
+                .orElse(true);
     }
 
     /**
@@ -54,8 +54,9 @@ public class UserServiceImpl implements UserService {
      * @param username  用户名
      * @param firstName 名
      * @param lastName  姓
-     */
+    */
     @Override
+    @Transactional
     public void saveOrUpdateUserInfo(Long userId, String username, String firstName, String lastName) {
         if (userId == null) {
             return;
@@ -73,20 +74,7 @@ public class UserServiceImpl implements UserService {
             userRepository.save(created);
             return;
         }
-        boolean changed = false;
-        if (username != null && !username.equals(existing.getUsername())) {
-            existing.setUsername(username);
-            changed = true;
-        }
-        if (firstName != null && !firstName.equals(existing.getFirstName())) {
-            existing.setFirstName(firstName);
-            changed = true;
-        }
-        if (lastName != null && !lastName.equals(existing.getLastName())) {
-            existing.setLastName(lastName);
-            changed = true;
-        }
-        if (changed) {
+        if (updateProfile(existing, username, firstName, lastName)) {
             userRepository.save(existing);
         }
     }
@@ -98,12 +86,12 @@ public class UserServiceImpl implements UserService {
      * @param username  用户名
      * @param firstName 名
      * @param lastName  姓
-     * @return          更新后的用户实体
-     */
+    */
     @Override
-    public User markVerified(Long userId, String username, String firstName, String lastName) {
+    @Transactional
+    public void markVerified(Long userId, String username, String firstName, String lastName) {
         if (userId == null) {
-            return null;
+            return;
         }
         User existing = userRepository.findByUserId(userId).orElse(null);
         if (existing == null) {
@@ -115,75 +103,67 @@ public class UserServiceImpl implements UserService {
                     .blocked(false)
                     .verified(true)
                     .build();
-            return userRepository.save(created);
+            userRepository.save(created);
+            return;
         }
-        boolean changed = false;
-        if (username != null && !username.equals(existing.getUsername())) {
-            existing.setUsername(username);
-            changed = true;
-        }
-        if (firstName != null && !firstName.equals(existing.getFirstName())) {
-            existing.setFirstName(firstName);
-            changed = true;
-        }
-        if (lastName != null && !lastName.equals(existing.getLastName())) {
-            existing.setLastName(lastName);
-            changed = true;
-        }
+        boolean changed = updateProfile(existing, username, firstName, lastName);
         if (!Boolean.TRUE.equals(existing.getVerified())) {
             existing.setVerified(true);
             changed = true;
         }
-        return changed ? userRepository.save(existing) : existing;
+        if (changed) {
+            userRepository.save(existing);
+        }
     }
 
     /**
      * 拉黑用户
      *
      * @param userId 用户 ID
-     * @return       如果用户已被拉黑则返回已存在的用户实体，否则返回新创建的用户实体
-     */
+    */
     @Override
-    public User block(Long userId) {
+    @Transactional
+    public void block(Long userId) {
         if (userId == null) {
-            return null;
+            return;
         }
         User existing = userRepository.findByUserId(userId).orElse(null);
         if (existing != null) {
             if (Boolean.TRUE.equals(existing.getBlocked())) {
-                return existing;
+                return;
             }
             existing.setBlocked(true);
-            return userRepository.save(existing);
+            userRepository.save(existing);
+            return;
         }
         User created = User.builder()
                 .userId(userId)
                 .blocked(true)
                 .verified(false)
                 .build();
-        return userRepository.save(created);
+        userRepository.save(created);
     }
 
     /**
      * 取消拉黑用户
      *
      * @param userId 用户 ID
-     * @return       如果用户存在则返回用户实体；若用户不存在则返回 null
-     */
+    */
     @Override
-    public User unblock(Long userId) {
+    @Transactional
+    public void unblock(Long userId) {
         if (userId == null) {
-            return null;
+            return;
         }
         User existing = userRepository.findByUserId(userId).orElse(null);
         if (existing == null) {
-            return null;
+            return;
         }
         if (!Boolean.TRUE.equals(existing.getBlocked())) {
-            return existing;
+            return;
         }
         existing.setBlocked(false);
-        return userRepository.save(existing);
+        userRepository.save(existing);
     }
 
     /**
@@ -194,5 +174,22 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<User> listBlocked() {
         return userRepository.findByBlockedTrue();
+    }
+
+    private boolean updateProfile(User user, String username, String firstName, String lastName) {
+        boolean changed = false;
+        if (username != null && !username.equals(user.getUsername())) {
+            user.setUsername(username);
+            changed = true;
+        }
+        if (firstName != null && !firstName.equals(user.getFirstName())) {
+            user.setFirstName(firstName);
+            changed = true;
+        }
+        if (lastName != null && !lastName.equals(user.getLastName())) {
+            user.setLastName(lastName);
+            changed = true;
+        }
+        return changed;
     }
 }

@@ -18,6 +18,13 @@ final class MediaGroupRelaySupport {
 
     interface FlushBuffer {
         /**
+         * 获取用于保护缓冲状态的锁对象。
+         *
+         * @return 缓冲锁
+         */
+        Object lock();
+
+        /**
          * 获取当前已缓冲的消息数量。
          *
          * @return 当前缓冲数量
@@ -83,6 +90,7 @@ final class MediaGroupRelaySupport {
 
         private final C context;
         private final List<Message> messages = new ArrayList<>();
+        private final Object lock = new Object();
         private final long createdAtMillis = System.currentTimeMillis();
         private ScheduledFuture<?> scheduledCheck;
         private int lastCount = 0;
@@ -100,13 +108,20 @@ final class MediaGroupRelaySupport {
             return messages;
         }
 
-        synchronized void add(Message message) {
-            messages.add(message);
-            messages.sort(Comparator.comparingInt(m -> m.messageId() == null ? 0 : m.messageId()));
-            if (scheduledCheck == null || scheduledCheck.isCancelled() || scheduledCheck.isDone()) {
-                lastCount = messages.size();
-                stableCount = 0;
+        void add(Message message) {
+            synchronized (lock) {
+                messages.add(message);
+                messages.sort(Comparator.comparingInt(m -> m.messageId() == null ? 0 : m.messageId()));
+                if (scheduledCheck == null || scheduledCheck.isCancelled() || scheduledCheck.isDone()) {
+                    lastCount = messages.size();
+                    stableCount = 0;
+                }
             }
+        }
+
+        @Override
+        public Object lock() {
+            return lock;
         }
 
         /**
@@ -229,7 +244,8 @@ final class MediaGroupRelaySupport {
      */
     static void checkAndFlush(FlushBuffer buffer, Runnable flush) {
         boolean shouldFlush;
-        synchronized (buffer) {
+        Object lock = buffer.lock();
+        synchronized (lock) {
             int currentCount = buffer.messageCount();
             if (currentCount == buffer.getLastCount()) {
                 buffer.setStableCount(buffer.getStableCount() + 1);
@@ -246,7 +262,7 @@ final class MediaGroupRelaySupport {
         }
 
         ScheduledFuture<?> futureToCancel;
-        synchronized (buffer) {
+        synchronized (lock) {
             futureToCancel = buffer.getScheduledCheck();
             buffer.setScheduledCheck(null);
         }

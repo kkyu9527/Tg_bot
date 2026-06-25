@@ -7,6 +7,7 @@ import com.pengrad.telegrambot.model.botcommandscope.BotCommandScopeAllGroupChat
 import com.pengrad.telegrambot.model.botcommandscope.BotCommandScopeAllPrivateChats;
 import com.pengrad.telegrambot.request.SetMyCommands;
 import com.pengrad.telegrambot.request.SetWebhook;
+import com.pengrad.telegrambot.response.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @Slf4j
-public class TelegramBotStartupConfig {
+class TelegramBotStartupConfig {
 
     /**
      * 初始化 Telegram 机器人的 Webhook。
@@ -34,7 +35,15 @@ public class TelegramBotStartupConfig {
             }
 
             try {
-                telegramApiClient.execute(new SetWebhook().url(webhookUrl));
+                BaseResponse response = telegramApiClient.execute(new SetWebhook().url(webhookUrl));
+                if (response != null && response.isOk()) {
+                    log.info("setWebhook 成功，webhookUrl={}", webhookUrl);
+                } else {
+                    log.warn("setWebhook 失败，webhookUrl={}, errorCode={}, description={}",
+                            webhookUrl,
+                            response == null ? null : response.errorCode(),
+                            response == null ? null : response.description());
+                }
             } catch (RuntimeException e) {
                 log.warn("setWebhook 异常，webhookUrl={}", webhookUrl, e);
             }

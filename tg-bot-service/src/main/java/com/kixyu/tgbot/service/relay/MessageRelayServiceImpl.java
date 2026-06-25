@@ -6,7 +6,7 @@ import com.pengrad.telegrambot.model.Message;
 
 @Service
 @RequiredArgsConstructor
-public class MessageRelayServiceImpl implements MessageRelayService {
+class MessageRelayServiceImpl implements MessageRelayService {
 
     private final UserToGroupRelayForwarder userToGroupRelayForwarder;
     private final GroupToUserRelayForwarder groupToUserRelayForwarder;

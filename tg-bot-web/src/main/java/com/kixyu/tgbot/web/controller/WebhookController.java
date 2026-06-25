@@ -14,7 +14,7 @@ import com.pengrad.telegrambot.model.Update;
 @RequestMapping("/webhook")
 @RequiredArgsConstructor
 @Slf4j
-public class WebhookController {
+class WebhookController {
 
     private final WebhookService webhookService;
 
@@ -22,10 +22,9 @@ public class WebhookController {
      * 处理来自 Telegram 的 Webhook 更新。
      *
      * @param body  Webhook 请求体，包含 Telegram 更新信息
-     * @return      处理结果，固定为 "OK"
      */
     @PostMapping
-    public String handleWebhook(@RequestBody String body) {
+    public void handleWebhook(@RequestBody String body) {
         Update update = null;
         try {
             update = BotUtils.parseUpdate(body);
@@ -34,6 +33,5 @@ public class WebhookController {
             Integer updateId = update == null ? null : update.updateId();
             log.error("Webhook 处理异常，updateId={}, bodyLength={}", updateId, body == null ? null : body.length(), e);
         }
-        return "OK";
     }
 }

@@ -18,24 +18,6 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByTopicId(Long topicId);
 
     /**
-     * 根据话题 ID 和消息类型查询消息列表。
-     *
-     * @param topicId       话题 ID
-     * @param messageType   消息类型
-     * @return              消息列表
-     */
-    List<Message> findByTopicIdAndMessageType(Long topicId, Message.MessageType messageType);
-
-    /**
-     * 根据话题 ID 和内容类型查询消息列表。
-     *
-     * @param topicId       话题 ID
-     * @param contentType   内容类型
-     * @return              消息列表
-     */
-    List<Message> findByTopicIdAndContentType(Long topicId, Message.ContentType contentType);
-
-    /**
      * 根据原始消息 ID 查询消息。
      *
      * @param originalMessageId 原始消息 ID
@@ -62,15 +44,6 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     Optional<Message> findByOriginalMessageIdAndSenderIdAndMessageType(Long originalMessageId, Long senderId, Message.MessageType messageType);
 
     /**
-     * 根据话题 ID 和发送者 ID查询消息列表。
-     *
-     * @param topicId   话题 ID
-     * @param senderId  发送者 ID
-     * @return          消息列表
-     */
-    List<Message> findByTopicIdAndSenderId(Long topicId, Long senderId);
-
-    /**
      * 统计指定话题中某个发送者的指定类型消息数量。
      *
      * @param topicId       话题 ID
@@ -91,40 +64,10 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     Optional<Message> findFirstByTopicIdAndSenderIdAndMessageTypeOrderByCreateTimeDesc(Long topicId, Long senderId, Message.MessageType messageType);
 
     /**
-     * 根据媒体组 ID 查询消息列表。
-     *
-     * @param mediaGroupId  媒体组 ID
-     * @return              消息列表
-     */
-    List<Message> findByMediaGroupId(String mediaGroupId);
-
-    /**
-     * 根据内容类型查询消息列表。
-     *
-     * @param contentType   内容类型
-     * @return              消息列表
-     */
-    List<Message> findByContentType(Message.ContentType contentType);
-
-    /**
      * 删除指定话题下的所有消息。
      *
      * @param topicId 话题 ID
      */
     void deleteByTopicId(Long topicId);
 
-    /**
-     * 删除指定话题中某个发送者的所有消息。
-     *
-     * @param topicId  话题 ID
-     * @param senderId 发送者 ID
-     */
-    void deleteByTopicIdAndSenderId(Long topicId, Long senderId);
-
-    /**
-     * 删除指定媒体组下的所有消息。
-     *
-     * @param mediaGroupId 媒体组 ID
-     */
-    void deleteByMediaGroupId(String mediaGroupId);
 }

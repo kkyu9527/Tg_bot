@@ -15,7 +15,6 @@ import com.pengrad.telegrambot.model.request.InputMedia;
 import com.pengrad.telegrambot.model.request.ReplyParameters;
 import com.pengrad.telegrambot.request.CopyMessage;
 import com.pengrad.telegrambot.request.SendMediaGroup;
-import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.MessageIdResponse;
 import com.pengrad.telegrambot.response.MessagesResponse;
 import com.pengrad.telegrambot.response.SendResponse;
@@ -36,7 +35,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class UserToGroupRelayForwarder {
+class UserToGroupRelayForwarder {
 
     private static final int LOW_TRUST_MESSAGE_LIMIT = 10;
     private static final long LOW_TRUST_MESSAGE_INTERVAL_MILLIS = 10_000L;
@@ -64,7 +63,7 @@ public class UserToGroupRelayForwarder {
      *
      * @param privateMessage 用户私聊消息
      */
-    public void forward(Message privateMessage) {
+    void forward(Message privateMessage) {
         forwardInternal(privateMessage, true);
     }
 
@@ -123,8 +122,8 @@ public class UserToGroupRelayForwarder {
             if (privateChatId != null) {
                 String text = "💬 小提示\n\n当前仅支持转发「纯文本消息」。\n这条非文本消息不会被转发给主人。\n\n如需转发图片、视频等，请联系主人开启「全消息模式」～";
                 try {
-                    SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
-                    telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
+                    SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
+                    telegramApiClient.scheduleDeleteIfOk(privateChatId, response);
                 } catch (RuntimeException e) {
                     log.warn("发送非文本消息未转发提示失败，userId={}, chatId={}", user.id(), privateChatId, e);
                 }
@@ -177,7 +176,7 @@ public class UserToGroupRelayForwarder {
                 return;
             }
 
-            botService.handleUserMessage(user, contentType, groupChatId, originalMessageId, forwardedMessageId, topic.getTopicId());
+            botService.handleUserMessage(user, contentType, groupChatId, originalMessageId, forwardedMessageId);
             log.info("转发私聊消息成功，userId={}, topicId={}, originalMessageId={}, copiedMessageId={}",
                     user.id(), topic.getTopicId(), originalMessageId, forwardedMessageId);
         }
@@ -269,8 +268,8 @@ public class UserToGroupRelayForwarder {
             if (privateChatId != null) {
                 String text = "💬 小提示\n\n当前仅支持转发「纯文本消息」。\n该媒体组中的消息不会被转发给主人。\n\n如需转发图片、视频等，请联系主人开启「全消息模式」～";
                 try {
-                    SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
-                    telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
+                    SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
+                    telegramApiClient.scheduleDeleteIfOk(privateChatId, response);
                 } catch (RuntimeException e) {
                     log.warn("发送媒体组未转发提示失败，userId={}, chatId={}, mediaGroupId={}", user.id(), privateChatId, context.mediaGroupId(), e);
                 }
@@ -327,8 +326,7 @@ public class UserToGroupRelayForwarder {
                     ContentType.MEDIA_GROUP,
                     groupChatId,
                     original.messageId().longValue(),
-                    forwarded.messageId().longValue(),
-                    topic.getTopicId()
+                    forwarded.messageId().longValue()
             );
         }
 
@@ -392,8 +390,8 @@ public class UserToGroupRelayForwarder {
         }
         String text = "小提示\n\n新用户前 10 条消息暂时不能包含链接或 @用户名。\n这条消息没有转发给主人。";
         try {
-            SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
-            telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
+            SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
+            telegramApiClient.scheduleDeleteIfOk(privateChatId, response);
         } catch (RuntimeException e) {
             log.warn("发送低信任期拦截提示失败，userId={}, chatId={}", userId, privateChatId, e);
         }
@@ -406,8 +404,8 @@ public class UserToGroupRelayForwarder {
         long remainingSeconds = Math.max(1L, (long) Math.ceil(remainingMillis / 1000.0));
         String text = "小提示\n\n新用户前 10 条消息需要间隔 10 秒。\n请 " + remainingSeconds + " 秒后再发送。";
         try {
-            SendResponse response = telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
-            telegramApiClient.scheduleDeleteIfOk(privateChatId, response, 30_000L);
+            SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
+            telegramApiClient.scheduleDeleteIfOk(privateChatId, response);
         } catch (RuntimeException e) {
             log.warn("发送低信任期频率提示失败，userId={}, chatId={}", userId, privateChatId, e);
         }

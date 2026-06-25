@@ -1,7 +1,6 @@
 package com.kixyu.tgbot.service.topic;
 
 import com.kixyu.tgbot.domain.entity.Topic;
-import java.util.List;
 import java.util.Optional;
 
 public interface TopicService {
@@ -12,11 +11,6 @@ public interface TopicService {
     Topic saveTopic(Topic topic);
     
     /**
-     * 根据用户ID获取话题列表
-     */
-    List<Topic> getTopicsByUserId(Long userId);
-    
-    /**
      * 根据话题ID获取话题信息
      */
     Optional<Topic> getTopicByTopicId(Long topicId);
@@ -25,16 +19,6 @@ public interface TopicService {
      * 根据用户ID和聊天ID获取话题信息
      */
     Optional<Topic> getTopicByUserIdAndChatId(Long userId, String chatId);
-    
-    /**
-     * 根据聊天ID获取所有话题
-     */
-    List<Topic> getTopicsByChatId(String chatId);
-    
-    /**
-     * 删除指定用户的所有话题记录
-     */
-    void deleteTopicsByUserId(Long userId);
     
     /**
      * 删除指定聊天中的特定话题
@@ -57,8 +41,4 @@ public interface TopicService {
      */
     void handleTopicDeletion(Long userId, String chatId);
     
-    /**
-     * 重新创建用户话题
-     */
-    Topic recreateTopic(Long userId, String chatId, String username, String firstName, String lastName, Long newTopicId);
 }

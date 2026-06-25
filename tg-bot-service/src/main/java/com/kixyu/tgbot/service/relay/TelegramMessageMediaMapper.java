@@ -16,7 +16,7 @@ import com.pengrad.telegrambot.model.request.InputMediaVideo;
 import java.util.Comparator;
 
 @Component
-public class TelegramMessageMediaMapper {
+class TelegramMessageMediaMapper {
 
     /**
      * 根据 Telegram 消息内容推断业务侧的内容类型。
@@ -24,7 +24,7 @@ public class TelegramMessageMediaMapper {
      * @param message Telegram 消息
      * @return 推断得到的内容类型
      */
-    public ContentType inferContentType(Message message) {
+    ContentType inferContentType(Message message) {
         if (message == null) {
             return ContentType.TEXT;
         }
@@ -81,7 +81,7 @@ public class TelegramMessageMediaMapper {
      * @param message Telegram 消息
      * @return 可发送的 InputMedia；不可转换则返回 null
      */
-    public InputMedia<?> toInputMedia(Message message) {
+    InputMedia<?> toInputMedia(Message message) {
         if (message == null) {
             return null;
         }

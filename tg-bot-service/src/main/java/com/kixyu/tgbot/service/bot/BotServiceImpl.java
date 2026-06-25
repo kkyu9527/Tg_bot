@@ -11,7 +11,7 @@ import com.pengrad.telegrambot.model.User;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class BotServiceImpl implements BotService {
+class BotServiceImpl implements BotService {
 
     private final BotCommonService botCommonService;
 
@@ -24,10 +24,9 @@ public class BotServiceImpl implements BotService {
      * @param chatId                群聊 ID
      * @param userMessageId         用户私聊中的原始消息 ID
      * @param botForwardedMessageId 机器人转发到群话题后的消息 ID
-     * @param topicId               话题 ID（可选）
      */
     @Override
-    public void handleUserMediaGroupMessage(User user, String mediaGroupId, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId, Long topicId) {
+    public void handleUserMediaGroupMessage(User user, String mediaGroupId, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId) {
         log.info("处理用户 {} 的媒体组消息: {}", user.username(), mediaGroupId);
 
         Topic topic = botCommonService.getOrCreateUserTopic(user, chatId);
@@ -45,10 +44,9 @@ public class BotServiceImpl implements BotService {
      * @param chatId                群聊 ID
      * @param userMessageId         用户私聊中的原始消息 ID
      * @param botForwardedMessageId 机器人转发到群话题后的消息 ID
-     * @param topicId               话题 ID（可选，最终以映射中的 topicId 为准）
      */
     @Override
-    public void handleUserMessage(User user, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId, Long topicId) {
+    public void handleUserMessage(User user, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId) {
         log.info("处理用户 {} 的消息，类型: {}", user.username(), contentType);
 
         Topic topic = botCommonService.getOrCreateUserTopic(user, chatId);
@@ -64,12 +62,11 @@ public class BotServiceImpl implements BotService {
      * @param owner                 主人用户
      * @param contentType           消息内容类型
      * @param topicId               话题 ID
-     * @param chatId                群聊 ID
      * @param originalMessageId     群话题中的原始消息 ID
      * @param forwardedMessageId    回流到用户私聊后的消息 ID
      */
     @Override
-    public void handleOwnerReplyInTopic(User owner, Message.ContentType contentType, Long topicId, String chatId, Long originalMessageId, Long forwardedMessageId) {
+    public void handleOwnerReplyInTopic(User owner, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId) {
         log.info("处理主人 {} 在话题 {} 中的回复，类型: {}", owner.username(), topicId, contentType);
 
         botCommonService.createOwnerReplyMessage(owner, contentType, topicId, originalMessageId, forwardedMessageId);
@@ -84,12 +81,11 @@ public class BotServiceImpl implements BotService {
      * @param mediaGroupId          媒体组 ID
      * @param contentType           消息内容类型
      * @param topicId               话题 ID
-     * @param chatId                群聊 ID
      * @param originalMessageId     群话题中的原始消息 ID
      * @param forwardedMessageId    回流到用户私聊后的消息 ID
      */
     @Override
-    public void handleOwnerMediaGroupReplyInTopic(User owner, String mediaGroupId, Message.ContentType contentType, Long topicId, String chatId, Long originalMessageId, Long forwardedMessageId) {
+    public void handleOwnerMediaGroupReplyInTopic(User owner, String mediaGroupId, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId) {
         log.info("处理主人 {} 在话题 {} 中的媒体组回复: {}", owner.username(), topicId, mediaGroupId);
 
         botCommonService.createOwnerMediaGroupReplyMessage(owner, mediaGroupId, contentType, topicId, originalMessageId, forwardedMessageId);

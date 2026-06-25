@@ -12,7 +12,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class RelayReplyResolver {
+class RelayReplyResolver {
 
     private final TopicService topicService;
     private final MessageService messageService;
@@ -27,7 +27,7 @@ public class RelayReplyResolver {
      * @param groupChatId       群 chatId（字符串形式）
      * @return                  目标用户 ID；无法解析则返回 null
      */
-    public Long resolveTargetUserId(Message groupMessage, Long threadId, String groupChatId) {
+    Long resolveTargetUserId(Message groupMessage, Long threadId, String groupChatId) {
         if (groupMessage.replyToMessage() != null && groupMessage.replyToMessage().messageId() != null) {
             Long repliedMessageId = groupMessage.replyToMessage().messageId().longValue();
             var mapped = messageService.getMessageByForwardedMessageId(repliedMessageId);
@@ -50,7 +50,7 @@ public class RelayReplyResolver {
      * @param groupMessage 群内话题消息
      * @return 用户侧 replyToMessageId；无法映射则返回 null
      */
-    public Integer resolveUserReplyToMessageId(Message groupMessage) {
+    Integer resolveUserReplyToMessageId(Message groupMessage) {
         if (groupMessage.replyToMessage() == null || groupMessage.replyToMessage().messageId() == null) {
             return null;
         }
@@ -78,7 +78,7 @@ public class RelayReplyResolver {
      * @param privateMessage    用户侧消息
      * @return                  群内“主人回复”的 replyToMessageId；无法映射则返回 null
      */
-    public Integer resolveGroupReplyToMessageId(Message privateMessage) {
+    Integer resolveGroupReplyToMessageId(Message privateMessage) {
         if (privateMessage.replyToMessage() == null || privateMessage.replyToMessage().messageId() == null) {
             return null;
         }

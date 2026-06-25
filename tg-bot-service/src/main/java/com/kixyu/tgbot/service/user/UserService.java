@@ -15,12 +15,12 @@ public interface UserService {
     boolean isBlocked(Long userId);
 
     /**
-     * 检查用户是否已通过人机验证。
+     * 检查用户是否未通过人机验证。
      *
      * @param userId    用户 ID
-     * @return          如果用户已验证，则返回 true；否则返回 false
+     * @return          如果用户未验证，则返回 true；否则返回 false
      */
-    boolean isVerified(Long userId);
+    boolean isUnverified(Long userId);
 
     /**
      * 保存或更新用户信息。
@@ -39,25 +39,22 @@ public interface UserService {
      * @param username      用户名
      * @param firstName     firstName
      * @param lastName      lastName
-     * @return              更新后的用户实体
      */
-    User markVerified(Long userId, String username, String firstName, String lastName);
+    void markVerified(Long userId, String username, String firstName, String lastName);
 
     /**
      * 阻塞用户，防止其与机器人进行交互。
      *
      * @param userId    用户 ID
-     * @return          被阻塞的用户实体
      */
-    User block(Long userId);
+    void block(Long userId);
 
     /**
      * 解除用户阻塞，允许其与机器人进行交互。
      *
      * @param userId    用户 ID
-     * @return          解除阻塞的用户实体
      */
-    User unblock(Long userId);
+    void unblock(Long userId);
 
     /**
      * 列出所有已被阻塞的用户。

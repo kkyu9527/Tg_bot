@@ -4,7 +4,7 @@ import com.kixyu.tgbot.domain.entity.Message;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.pengrad.telegrambot.model.Chat;
 
-public interface OnboardingCommonService {
+public interface CommandMessageCleanupService {
 
     /**
      * 删除私聊与群聊中成对的消息（从私聊入口触发）。
@@ -40,14 +40,6 @@ public interface OnboardingCommonService {
      * @param threadId 话题线程 ID
      */
     void deleteForumTopic(Long groupId, Long threadId);
-
-    /**
-     * 向指定会话发送纯文本消息。
-     *
-     * @param chatId 会话 ID，可以是群聊或私聊
-     * @param text   文本内容
-     */
-    void sendText(Long chatId, String text);
 
     /**
      * 根据原始消息 ID 或转发消息 ID 查询消息映射。

@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ import java.io.IOException;
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
-public class WebhookRequestLoggingFilter extends OncePerRequestFilter {
+class WebhookRequestLoggingFilter extends OncePerRequestFilter {
 
     /**
      * 过滤 Webhook 请求，记录请求信息。
@@ -27,7 +28,10 @@ public class WebhookRequestLoggingFilter extends OncePerRequestFilter {
      * @throws IOException      如果处理请求时发生 I/O 异常
      */
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         String uri = request.getRequestURI();
         boolean isWebhook = uri != null && uri.startsWith("/webhook");
@@ -54,4 +58,3 @@ public class WebhookRequestLoggingFilter extends OncePerRequestFilter {
         }
     }
 }
-

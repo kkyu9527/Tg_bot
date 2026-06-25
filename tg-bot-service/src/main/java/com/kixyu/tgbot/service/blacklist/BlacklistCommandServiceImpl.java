@@ -6,12 +6,12 @@ import com.kixyu.tgbot.domain.entity.User;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.user.UserService;
 import com.kixyu.tgbot.support.OnboardingSupport;
+import com.kixyu.tgbot.support.UserConfigKeyboardFactory;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.DeleteMessage;
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
 import com.pengrad.telegrambot.request.SendMessage;
@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,10 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class BlacklistCommandServiceImpl implements BlacklistCommandService {
+class BlacklistCommandServiceImpl implements BlacklistCommandService {
 
-    private static final long HINT_DELETE_DELAY_MILLIS = 30_000L;
-    private static final long BLOCKED_LIST_DELETE_DELAY_MILLIS = 60_000L;
+    private static final long BLOCKED_LIST_DELETE_DELAY_MILLIS = 30_000L;
     private static final long ACTION_DEBOUNCE_MILLIS = 5_000L;
 
     private final TelegramBotProperties telegramBotProperties;
@@ -39,6 +39,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
     private final UserService userService;
     private final TopicService topicService;
     private final OnboardingSupport onboardingSupport;
+    private final UserConfigKeyboardFactory userConfigKeyboardFactory;
     private final Map<String, Integer> lastListMessageIds = new ConcurrentHashMap<>();
     private final Map<String, Long> recentActionTimes = new ConcurrentHashMap<>();
 
@@ -121,7 +122,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
             targetUserId = topic == null ? null : topic.getUserId();
         }
         if (targetUserId == null) {
-            sendHint(chat.id(), message.messageThreadId(), "⚠️ 小提示\n\n在用户话题里发送 /block，或使用 /block 用户ID。", true);
+            sendHint(chat.id(), message.messageThreadId(), "⚠️ 小提示\n\n在用户话题里发送 /block，或使用 /block 用户ID。");
             deleteCommandMessage(chat.id(), message);
             return;
         }
@@ -136,7 +137,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         onboardingSupport.syncBlockedTopicName(refreshedTopic, true);
         refreshTopicKeyboard(chat.id(), refreshedTopic);
         refreshSourceKeyboard(chat.id(), message, refreshedTopic, deleteSourceMessage);
-        sendHint(chat.id(), message.messageThreadId(), "已拉黑用户：" + targetUserId, true);
+        sendHint(chat.id(), message.messageThreadId(), "已拉黑用户：" + targetUserId);
         deleteSourceMessage(chat.id(), message, deleteSourceMessage);
         log.info("已通过黑名单入口拉黑用户，userId={}, sourceMessageId={}", targetUserId, message.messageId());
     }
@@ -149,7 +150,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
             targetUserId = topic == null ? null : topic.getUserId();
         }
         if (targetUserId == null) {
-            sendHint(chat.id(), message.messageThreadId(), "⚠️ 小提示\n\n在用户话题里发送 /unblock，或使用 /unblock 用户ID。", true);
+            sendHint(chat.id(), message.messageThreadId(), "⚠️ 小提示\n\n在用户话题里发送 /unblock，或使用 /unblock 用户ID。");
             deleteCommandMessage(chat.id(), message);
             return;
         }
@@ -164,7 +165,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         onboardingSupport.syncBlockedTopicName(refreshedTopic, false);
         refreshTopicKeyboard(chat.id(), refreshedTopic);
         refreshSourceKeyboard(chat.id(), message, refreshedTopic, deleteSourceMessage);
-        sendHint(chat.id(), message.messageThreadId(), "已取消拉黑用户：" + targetUserId, true);
+        sendHint(chat.id(), message.messageThreadId(), "已取消拉黑用户：" + targetUserId);
         deleteSourceMessage(chat.id(), message, deleteSourceMessage);
         log.info("已通过黑名单入口取消拉黑用户，userId={}, sourceMessageId={}", targetUserId, message.messageId());
     }
@@ -177,7 +178,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
         List<User> blockedUsers = userService.listBlocked();
         String text = buildBlockedListText(blockedUsers);
-        SendMessage req = new SendMessage(chat.id().longValue(), text);
+        SendMessage req = telegramApiClient.createSendMessage(chat.id(), text);
         if (threadId != null) {
             req.messageThreadId(threadId);
         }
@@ -219,7 +220,14 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
     }
 
     private String buildBlockedListAutoDeleteHint() {
-        return "\n\n提示：这条黑名单列表消息将在 1 分钟后自动删除。";
+        long seconds = Math.max(1L, Duration.ofMillis(BLOCKED_LIST_DELETE_DELAY_MILLIS).toSeconds());
+        String durationText;
+        if (seconds < 60L || seconds % 60L != 0L) {
+            durationText = seconds + " 秒";
+        } else {
+            durationText = (seconds / 60L) + " 分钟";
+        }
+        return "\n\n提示：这条黑名单列表消息将在 " + durationText + " 后自动删除。";
     }
 
     private String buildCommandHelpText() {
@@ -272,22 +280,20 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
 
         String normalized = normalizeCommandText(text);
-        if (normalized.equals("拉黑") || normalized.equals("block") || normalized.equals("ban")) {
-            return new ParsedBlacklistCommand(BlacklistAction.BLOCK, null);
-        }
-        if (normalized.equals("取消拉黑") || normalized.equals("解除拉黑") || normalized.equals("unblock") || normalized.equals("unban")) {
-            return new ParsedBlacklistCommand(BlacklistAction.UNBLOCK, null);
-        }
-        if (normalized.equals("黑名单") || normalized.equals("查看黑名单") || normalized.equals("查看黑名单成员")
-                || normalized.equals("blacklist") || normalized.equals("blocked")) {
-            return new ParsedBlacklistCommand(BlacklistAction.LIST, null);
-        }
-        if (normalized.equals("退出黑名单") || normalized.equals("退出查看黑名单") || normalized.equals("退出查看黑名单成员")
-                || normalized.equals("exit") || normalized.equals("exit_blacklist") || normalized.equals("close_blacklist")) {
-            return new ParsedBlacklistCommand(BlacklistAction.EXIT_LIST, null);
+        ParsedBlacklistCommand directCommand = switch (normalized) {
+            case "拉黑", "block", "ban" -> new ParsedBlacklistCommand(BlacklistAction.BLOCK, null);
+            case "取消拉黑", "解除拉黑", "unblock", "unban" -> new ParsedBlacklistCommand(BlacklistAction.UNBLOCK, null);
+            case "黑名单", "查看黑名单", "查看黑名单成员", "blacklist", "blocked" ->
+                    new ParsedBlacklistCommand(BlacklistAction.LIST, null);
+            case "退出黑名单", "退出查看黑名单", "退出查看黑名单成员", "exit", "exit_blacklist", "close_blacklist" ->
+                    new ParsedBlacklistCommand(BlacklistAction.EXIT_LIST, null);
+            default -> null;
+        };
+        if (directCommand != null) {
+            return directCommand;
         }
 
-        Long embeddedUnblockUserId = parseEmbeddedUserId(normalized, "unblock_");
+        Long embeddedUnblockUserId = parseEmbeddedUnblockUserId(normalized);
         if (embeddedUnblockUserId != null) {
             return new ParsedBlacklistCommand(BlacklistAction.UNBLOCK, embeddedUnblockUserId);
         }
@@ -322,7 +328,8 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return normalized.trim().toLowerCase(Locale.ROOT);
     }
 
-    private Long parseEmbeddedUserId(String text, String prefix) {
+    private Long parseEmbeddedUnblockUserId(String text) {
+        String prefix = "unblock_";
         if (!text.startsWith(prefix)) {
             return null;
         }
@@ -365,7 +372,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
             return;
         }
         try {
-            InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
+            InlineKeyboardMarkup markup = userConfigKeyboardFactory.buildForTopic(topic);
             telegramApiClient.execute(new EditMessageReplyMarkup(chatId, topic.getWelcomeMessageId().intValue()).replyMarkup(markup));
         } catch (RuntimeException e) {
             log.warn("刷新黑名单按钮状态失败，chatId={}, topicId={}, messageId={}", chatId, topic.getTopicId(), topic.getWelcomeMessageId(), e);
@@ -381,7 +388,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
             return;
         }
         try {
-            InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
+            InlineKeyboardMarkup markup = userConfigKeyboardFactory.buildForTopic(topic);
             telegramApiClient.execute(new EditMessageReplyMarkup(chatId, message.messageId()).replyMarkup(markup));
         } catch (RuntimeException e) {
             log.warn("刷新当前黑名单按钮状态失败，chatId={}, topicId={}, messageId={}", chatId, topic.getTopicId(), message.messageId(), e);
@@ -393,8 +400,8 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
             return;
         }
         try {
-            SendResponse response = telegramApiClient.execute(new SendMessage(userId.longValue(), "🚫 转发状态\n\n当前状态：你的消息「不会再被转发给主人」。"));
-            telegramApiClient.scheduleDeleteIfOk(userId, response, HINT_DELETE_DELAY_MILLIS);
+            SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(userId, "🚫 转发状态\n\n当前状态：你的消息「不会再被转发给主人」。"));
+            telegramApiClient.scheduleDeleteIfOk(userId, response);
         } catch (RuntimeException e) {
             log.warn("发送拉黑提示给用户失败，userId={}", userId, e);
         }
@@ -405,26 +412,24 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
             return;
         }
         try {
-            SendResponse response = telegramApiClient.execute(new SendMessage(userId.longValue(), "✅ 转发状态\n\n当前状态：你的消息「会再次被转发给主人啦～」。"));
-            telegramApiClient.scheduleDeleteIfOk(userId, response, HINT_DELETE_DELAY_MILLIS);
+            SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(userId, "✅ 转发状态\n\n当前状态：你的消息「会再次被转发给主人啦～」。"));
+            telegramApiClient.scheduleDeleteIfOk(userId, response);
         } catch (RuntimeException e) {
             log.warn("发送取消拉黑提示给用户失败，userId={}", userId, e);
         }
     }
 
-    private void sendHint(Long chatId, Long threadId, String text, boolean autoDelete) {
+    private void sendHint(Long chatId, Long threadId, String text) {
         if (chatId == null || text == null || text.isBlank()) {
             return;
         }
         try {
-            SendMessage req = new SendMessage(chatId.longValue(), text);
+            SendMessage req = telegramApiClient.createSendMessage(chatId, text);
             if (threadId != null) {
                 req.messageThreadId(threadId);
             }
             SendResponse response = telegramApiClient.execute(req);
-            if (autoDelete) {
-                telegramApiClient.scheduleDeleteIfOk(chatId, response, HINT_DELETE_DELAY_MILLIS);
-            }
+            telegramApiClient.scheduleDeleteIfOk(chatId, response);
         } catch (RuntimeException e) {
             log.warn("发送黑名单命令提示失败，chatId={}, threadId={}", chatId, threadId, e);
         }
@@ -469,7 +474,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
     private record ParsedBlacklistCommand(BlacklistAction action, Long userId) {
     }
 
-    private record CallbackAction(String action, Long userId) {
+    private record CallbackAction(String action, long userId) {
     }
 
     private CallbackAction parseCallbackAction(String data) {
@@ -477,7 +482,7 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
         if (parts.length != 3) {
             return null;
         }
-        Long userId;
+        long userId;
         try {
             userId = Long.parseLong(parts[2]);
         } catch (NumberFormatException e) {
@@ -496,14 +501,6 @@ public class BlacklistCommandServiceImpl implements BlacklistCommandService {
     }
 
     private void answer(CallbackQuery callbackQuery, String text) {
-        if (callbackQuery == null || callbackQuery.id() == null) {
-            return;
-        }
-        AnswerCallbackQuery req = new AnswerCallbackQuery(callbackQuery.id());
-        if (text != null && !text.isBlank()) {
-            req.text(text);
-            req.showAlert(true);
-        }
-        telegramApiClient.execute(req);
+        telegramApiClient.answerCallback(callbackQuery, text, true);
     }
 }

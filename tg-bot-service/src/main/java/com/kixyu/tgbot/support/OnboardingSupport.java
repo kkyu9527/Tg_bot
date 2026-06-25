@@ -4,7 +4,6 @@ import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.user.UserService;
 import com.kixyu.tgbot.telegram.TelegramApiErrorUtil;
-import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.File;
 import com.pengrad.telegrambot.model.ForumTopic;
@@ -12,15 +11,12 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.UserProfilePhotos;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.CreateForumTopic;
 import com.pengrad.telegrambot.request.EditForumTopic;
 import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.GetUserProfilePhotos;
 import com.pengrad.telegrambot.request.PinChatMessage;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import com.pengrad.telegrambot.response.BaseResponse;
 import com.pengrad.telegrambot.response.CreateForumTopicResponse;
 import com.pengrad.telegrambot.response.GetFileResponse;
@@ -30,12 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.Comparator;
-import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -43,46 +34,11 @@ import java.util.Optional;
 public class OnboardingSupport {
 
     private static final String BLOCKED_TOPIC_NAME_PREFIX = "🚫 ";
-    private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
 
     private final TelegramApiClient telegramApiClient;
     private final TopicService topicService;
     private final UserService userService;
-    private final TelegramBotProperties telegramBotProperties;
-
-    /**
-     * 获取配置中的群组 ID。
-     *
-     * @return 群组 ID
-     */
-    public Long getGroupId() {
-        return telegramBotProperties.getGroupId();
-    }
-
-    /**
-     * 根据用户 ID 和聊天 ID 查询话题。
-     *
-     * @param userId 用户 ID
-     * @param chatId 聊天 ID
-     * @return 话题实体，可为空
-     */
-    public Optional<Topic> getTopicByUserIdAndChatId(Long userId, String chatId) {
-        return topicService.getTopicByUserIdAndChatId(userId, chatId);
-    }
-
-    /**
-     * 删除用户在指定聊天中的话题及其消息。
-     *
-     * @param userId 用户 ID
-     * @param chatId 聊天 ID
-     */
-    public void handleTopicDeletion(Long userId, String chatId) {
-        topicService.handleTopicDeletion(userId, chatId);
-    }
-
-    public Topic createTopic(Long userId, String username, String firstName, String lastName, Long topicId, String chatId) {
-        return topicService.createTopic(userId, username, firstName, lastName, topicId, chatId);
-    }
+    private final UserConfigKeyboardFactory userConfigKeyboardFactory;
 
     /**
      * 向用户私聊窗口发送欢迎消息。
@@ -108,7 +64,7 @@ public class OnboardingSupport {
             log.warn("保存或更新用户信息失败，userId={}", user.id(), e);
         }
         try {
-            telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+            telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
         } catch (RuntimeException e) {
             log.warn("发送欢迎消息失败，userId={}, privateChatId={}", user.id(), privateChatId, e);
         }
@@ -125,20 +81,20 @@ public class OnboardingSupport {
     }
 
     /**
-     * 校验指定群聊中的话题是否仍然存在且可编辑。
+     * 校验指定群聊中的话题是否已经不存在或不可编辑。
      *
      * @param groupChatId 群聊 ID 字符串
      * @param topic       本地话题映射
-     * @return 话题是否存活
+     * @return 话题是否缺失
      */
-    public boolean isForumTopicAlive(String groupChatId, Topic topic) {
+    public boolean isForumTopicMissing(String groupChatId, Topic topic) {
         if (topic == null || topic.getTopicId() == null || topic.getTopicId() > Integer.MAX_VALUE) {
-            return false;
+            return true;
         }
 
         Long groupChatIdLong = parseChatIdLong(groupChatId);
         if (groupChatIdLong == null) {
-            return false;
+            return true;
         }
 
         String topicName = topic.getTopicName();
@@ -153,10 +109,10 @@ public class OnboardingSupport {
                 log.warn("话题存活校验失败，groupChatId={}, topicId={}, responseOk={}, error={}",
                         groupChatId, topic.getTopicId(), response == null ? null : response.isOk(), response == null ? null : response.description());
             }
-            return ok;
+            return !ok;
         } catch (RuntimeException e) {
             log.warn("话题存活校验异常，groupChatId={}, topicId={}", groupChatId, topic.getTopicId(), e);
-            return false;
+            return true;
         }
     }
 
@@ -220,7 +176,7 @@ public class OnboardingSupport {
      */
     public void recreateAndUpdateTopic(User user, String groupChatId) {
         log.info("准备重建话题并更新映射，userId={}, groupChatId={}, username={}", user.id(), groupChatId, user.username());
-        handleTopicDeletion(user.id(), groupChatId);
+        topicService.handleTopicDeletion(user.id(), groupChatId);
 
         String topicName = Topic.generateTopicName(user.firstName(), user.lastName(), user.username(), user.id());
         Long threadId = createForumTopic(groupChatId, topicName);
@@ -312,75 +268,6 @@ public class OnboardingSupport {
     }
 
     /**
-     * 构建用户配置的内联键盘。
-     *
-     * @param topicId       话题 ID
-     * @param groupChatId   群聊 ID 字符串
-     * @return          内联键盘标记up
-     */
-    private InlineKeyboardMarkup buildBlockInlineKeyboard(Long topicId, String groupChatId) {
-        Topic topic = null;
-        if (topicId != null && groupChatId != null) {
-            topic = topicService.getTopicByTopicId(topicId)
-                    .filter(t -> groupChatId.equals(t.getChatId()))
-                    .orElse(null);
-        }
-        if (topic != null) {
-            return buildUserConfigKeyboard(topic);
-        }
-
-        return new InlineKeyboardMarkup();
-    }
-
-    /**
-     * 构建用户配置的内联键盘。
-     *
-     * @param topic 话题实体对象
-     * @return 内联键盘标记
-     */
-    public InlineKeyboardMarkup buildUserConfigKeyboard(Topic topic) {
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-
-        Long userId = topic.getUserId();
-        if (userId != null) {
-            InlineKeyboardButton blockButton = buildBlockButton(userId);
-
-            InlineKeyboardButton listButton = new InlineKeyboardButton("已拉黑用户列表")
-                    .callbackData("bl:list:0");
-
-            markup.addRow(blockButton, listButton);
-        }
-
-        Long topicId = topic.getTopicId();
-        if (topicId != null) {
-            boolean fullMode = Boolean.TRUE.equals(topic.getFullMode());
-            String textOnlyLabel = fullMode ? "文字模式" : "✅ 文字模式";
-            String fullModeLabel = fullMode ? "✅ 全消息模式" : "全消息模式";
-            InlineKeyboardButton textOnlyButton = new InlineKeyboardButton(textOnlyLabel)
-                    .callbackData("md:text:" + topicId);
-            InlineKeyboardButton fullModeButton = new InlineKeyboardButton(fullModeLabel)
-                    .callbackData("md:full:" + topicId);
-            markup.addRow(textOnlyButton, fullModeButton);
-        }
-
-        return markup;
-    }
-
-    /**
-     * 构建拉黑用户的内联键盘按钮。
-     *
-     * @param userId 用户 ID
-     * @return 内联键盘按钮
-     */
-    private InlineKeyboardButton buildBlockButton(Long userId) {
-        boolean blocked = userService.isBlocked(userId);
-        String blockText = blocked ? "取消拉黑" : "拉黑此用户";
-        String blockAction = blocked ? "unblock" : "block";
-        String blockData = "bl:" + blockAction + ":" + userId;
-        return new InlineKeyboardButton(blockText).callbackData(blockData);
-    }
-
-    /**
      * 向新用户对应的话题发送提示消息，优先发送带头像的图片消息。
      *
      * @param groupChatId     群聊 ID 字符串
@@ -396,11 +283,11 @@ public class OnboardingSupport {
         }
 
         byte[] avatarBytes = downloadUserAvatarBytes(user.id());
-        InlineKeyboardMarkup markup = buildBlockInlineKeyboard(messageThreadId, groupChatId);
+        InlineKeyboardMarkup markup = userConfigKeyboardFactory.buildForTopic(messageThreadId, groupChatId);
         if (avatarBytes != null && avatarBytes.length > 0) {
             try {
                 SendResponse response = telegramApiClient.execute(
-                        new SendPhoto(groupChatIdLong.longValue(), avatarBytes)
+                        telegramApiClient.createSendPhoto(groupChatIdLong, avatarBytes)
                                 .fileName("avatar.jpg")
                                 .caption(caption)
                                 .messageThreadId(messageThreadId)
@@ -415,7 +302,7 @@ public class OnboardingSupport {
 
         try {
             SendResponse response = telegramApiClient.execute(
-                    new SendMessage(groupChatIdLong.longValue(), caption)
+                    telegramApiClient.createSendMessage(groupChatIdLong, caption)
                             .messageThreadId(messageThreadId)
                             .replyMarkup(markup)
             );
@@ -432,10 +319,10 @@ public class OnboardingSupport {
      * @param groupChatId 群聊 ID 字符串
      * @param messageId   消息 ID
      */
-    public boolean pinMessage(String groupChatId, Integer messageId) {
+    public void pinMessage(String groupChatId, Integer messageId) {
         Long groupChatIdLong = parseChatIdLong(groupChatId);
         if (groupChatIdLong == null || messageId == null) {
-            return false;
+            return;
         }
         try {
             BaseResponse response = telegramApiClient.execute(
@@ -444,12 +331,9 @@ public class OnboardingSupport {
             if (response == null || !response.isOk()) {
                 log.warn("置顶消息失败，groupChatId={}, messageId={}, responseOk={}, error={}",
                         groupChatId, messageId, response == null ? null : response.isOk(), response == null ? null : response.description());
-                return false;
             }
-            return true;
         } catch (RuntimeException e) {
             log.warn("置顶消息失败，groupChatId={}, messageId={}", groupChatId, messageId, e);
-            return false;
         }
     }
 
@@ -501,16 +385,7 @@ public class OnboardingSupport {
                 return null;
             }
 
-            String token = telegramBotProperties.getToken();
-            String url = "https://api.telegram.org/file/bot" + token + "/" + tgFile.filePath();
-
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
-            HttpResponse<byte[]> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                return response.body();
-            }
-
-            return null;
+            return telegramApiClient.downloadFileBytes(tgFile.filePath());
         } catch (Exception e) {
             log.warn("下载用户头像失败，userId={}", userId, e);
             return null;

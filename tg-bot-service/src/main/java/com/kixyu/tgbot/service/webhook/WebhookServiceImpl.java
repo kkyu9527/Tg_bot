@@ -25,7 +25,7 @@ import com.pengrad.telegrambot.request.EditMessageText;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class WebhookServiceImpl implements WebhookService {
+class WebhookServiceImpl implements WebhookService {
 
     private final TelegramBotProperties telegramBotProperties;
     private final TelegramCommandExtractor telegramCommandExtractor;
@@ -98,7 +98,7 @@ public class WebhookServiceImpl implements WebhookService {
             }
 
             if (chat != null && Chat.Type.Private.equals(chat.type())) {
-                if (!userService.isVerified(message.from().id())) {
+                if (userService.isUnverified(message.from().id())) {
                     log.info("未验证私聊消息已拦截，updateId={}, fromId={}, privateChatId={}", updateId, message.from().id(), chat.id());
                     verificationService.remindVerificationRequired(message.from(), chat.id());
                     return;

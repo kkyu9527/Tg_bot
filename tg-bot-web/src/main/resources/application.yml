@@ -10,8 +10,8 @@ spring:
   # 数据库配置
   datasource:
     url: jdbc:mysql://localhost:3306/tg_bot_db
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:password}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:root}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:}}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   # JPA 配置
@@ -21,21 +21,22 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
     open-in-view: false
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level --- [%thread] %logger{39} : %msg%n"
+    console: "%d{ISO8601} %-5level --- [%thread] %logger{39} : %msg%n"
   level:
+    org.hibernate: WARN
+    org.springframework.orm.jpa: WARN
     org.hibernate.SQL: OFF
     org.hibernate.orm.jdbc.bind: OFF
 
 # Telegram Bot 配置
 telegram:
   bot:
-    token: ${TELEGRAM_BOT_TOKEN}
+    token: ${TELEGRAM_BOT_TOKEN:}
     owner-id: ${TELEGRAM_BOT_OWNER_ID:0}
     group-id: ${TELEGRAM_BOT_GROUP_ID:0}
-    webhook-url: ${TELEGRAM_BOT_WEBHOOK_URL}
+    webhook-url: ${TELEGRAM_BOT_WEBHOOK_URL:}

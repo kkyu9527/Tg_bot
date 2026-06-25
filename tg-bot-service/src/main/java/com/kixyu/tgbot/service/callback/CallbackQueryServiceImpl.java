@@ -6,7 +6,7 @@ import com.kixyu.tgbot.service.blacklist.BlacklistCommandService;
 import com.kixyu.tgbot.service.onboarding.OnboardingService;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.verification.VerificationService;
-import com.kixyu.tgbot.support.OnboardingSupport;
+import com.kixyu.tgbot.support.UserConfigKeyboardFactory;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,15 +14,13 @@ import org.springframework.stereotype.Service;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
-import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class CallbackQueryServiceImpl implements CallbackQueryService {
+class CallbackQueryServiceImpl implements CallbackQueryService {
 
     private static final String BLOCK_CALLBACK_PREFIX = "bl:";
     private static final String MODE_CALLBACK_PREFIX = "md:";
@@ -30,7 +28,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
     private final TelegramApiClient telegramApiClient;
     private final TelegramBotProperties telegramBotProperties;
     private final TopicService topicService;
-    private final OnboardingSupport onboardingSupport;
+    private final UserConfigKeyboardFactory userConfigKeyboardFactory;
     private final BlacklistCommandService blacklistCommandService;
     private final VerificationService verificationService;
     private final OnboardingService onboardingService;
@@ -82,15 +80,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
      * @param text          可选提示文本，为 null 则不下发文字
      */
     private void answer(CallbackQuery callbackQuery, String text) {
-        if (callbackQuery == null || callbackQuery.id() == null) {
-            return;
-        }
-        AnswerCallbackQuery req = new AnswerCallbackQuery(callbackQuery.id());
-        if (text != null && !text.isBlank()) {
-            req.text(text);
-            req.showAlert(true);
-        }
-        telegramApiClient.execute(req);
+        telegramApiClient.answerCallback(callbackQuery, text, true);
     }
 
     /**
@@ -117,10 +107,9 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
      *
      * @param callbackQuery     回调查询对象
      * @param data              回调查询数据
-     * @param invalidIdMessage  如果无效的用户ID，则返回的提示文本
      * @return 解析后的 CallbackAction 对象，如果解析失败则返回 null
      */
-    private CallbackAction parseCallbackAction(CallbackQuery callbackQuery, String data, String invalidIdMessage) {
+    private CallbackAction parseCallbackAction(CallbackQuery callbackQuery, String data) {
         String[] parts = data.split(":");
         if (parts.length != 3) {
             answer(callbackQuery, "⚠️ 回调数据格式不对，操作失败了～");
@@ -131,7 +120,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         try {
             id = Long.parseLong(parts[2]);
         } catch (NumberFormatException e) {
-            answer(callbackQuery, invalidIdMessage);
+            answer(callbackQuery, "无效的话题ID");
             return null;
         }
         return new CallbackAction(action, id);
@@ -147,7 +136,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         if (isNotOwnerOperator(callbackQuery)) {
             return;
         }
-        CallbackAction callbackAction = parseCallbackAction(callbackQuery, data, "无效的话题ID");
+        CallbackAction callbackAction = parseCallbackAction(callbackQuery, data);
         if (callbackAction == null) {
             return;
         }
@@ -191,8 +180,8 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
                     ? "🔁 转发模式已更新\n\n当前模式：📸 全消息模式\n说明：你发送的图片、视频等也会被转发给主人～"
                     : "🔁 转发模式已更新\n\n当前模式：✉️ 文字模式\n说明：只有纯文本消息会被转发给主人，图片、视频等将不会被转发～";
             try {
-                SendResponse response = telegramApiClient.execute(new SendMessage(targetUserId.longValue(), notifyText));
-                telegramApiClient.scheduleDeleteIfOk(targetUserId, response, 30_000L);
+                SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(targetUserId, notifyText));
+                telegramApiClient.scheduleDeleteIfOk(targetUserId, response);
             } catch (RuntimeException e) {
                 log.warn("发送转发模式变更提示给用户失败，topicId={}, userId={}", topic.getTopicId(), targetUserId, e);
             }
@@ -200,7 +189,7 @@ public class CallbackQueryServiceImpl implements CallbackQueryService {
         Long chatId = message.chat().id();
         Integer messageId = message.messageId();
 
-        InlineKeyboardMarkup markup = onboardingSupport.buildUserConfigKeyboard(topic);
+        InlineKeyboardMarkup markup = userConfigKeyboardFactory.buildForTopic(topic);
         Long welcomeMessageId = topic.getWelcomeMessageId();
         if (welcomeMessageId != null && welcomeMessageId <= Integer.MAX_VALUE) {
             try {

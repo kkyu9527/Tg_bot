@@ -8,10 +8,8 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.DeleteMessage;
 import com.pengrad.telegrambot.request.EditMessageText;
-import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class VerificationServiceImpl implements VerificationService {
+class VerificationServiceImpl implements VerificationService {
 
     private static final int OPTION_COUNT = 6;
 
@@ -49,7 +47,7 @@ public class VerificationServiceImpl implements VerificationService {
 
         try {
             telegramApiClient.execute(
-                    new SendMessage(privateChatId.longValue(), text)
+                    telegramApiClient.createSendMessage(privateChatId, text)
                             .replyMarkup(buildKeyboard(user.id(), challenge))
             );
             log.info("已发送人机验证题，userId={}, privateChatId={}", user.id(), privateChatId);
@@ -81,7 +79,7 @@ public class VerificationServiceImpl implements VerificationService {
         User user = callbackQuery.from();
         userService.markVerified(user.id(), user.username(), user.firstName(), user.lastName());
         answer(callbackQuery, "验证通过", false);
-        editChallengeMessage(callbackQuery, "✅ 验证通过");
+        editChallengeMessage(callbackQuery);
         log.info("用户通过人机验证，userId={}", user.id());
         return true;
     }
@@ -93,7 +91,7 @@ public class VerificationServiceImpl implements VerificationService {
         }
         String text = "请先完成验证后再发送消息。发送 /start 可以重新获取验证题。";
         try {
-            telegramApiClient.execute(new SendMessage(privateChatId.longValue(), text));
+            telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
         } catch (RuntimeException e) {
             log.warn("发送验证提示失败，userId={}, privateChatId={}", user.id(), privateChatId, e);
         }
@@ -172,34 +170,24 @@ public class VerificationServiceImpl implements VerificationService {
     }
 
     private void answer(CallbackQuery callbackQuery, String text, boolean showAlert) {
-        if (callbackQuery == null || callbackQuery.id() == null) {
-            return;
-        }
-        AnswerCallbackQuery req = new AnswerCallbackQuery(callbackQuery.id());
-        if (text != null && !text.isBlank()) {
-            req.text(text);
-            req.showAlert(showAlert);
-        }
-        telegramApiClient.execute(req);
+        telegramApiClient.answerCallback(callbackQuery, text, showAlert);
     }
 
-    private void editChallengeMessage(CallbackQuery callbackQuery, String text) {
-        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
-        Message message = rawMessage instanceof Message m ? m : null;
-        if (message == null || message.chat() == null || message.chat().id() == null || message.messageId() == null) {
+    private void editChallengeMessage(CallbackQuery callbackQuery) {
+        Message message = accessibleCallbackMessage(callbackQuery);
+        if (message == null) {
             return;
         }
         try {
-            telegramApiClient.execute(new EditMessageText(message.chat().id(), message.messageId(), text));
+            telegramApiClient.execute(new EditMessageText(message.chat().id(), message.messageId(), "✅ 验证通过"));
         } catch (RuntimeException e) {
             log.warn("更新验证消息失败，chatId={}, messageId={}", message.chat().id(), message.messageId(), e);
         }
     }
 
     private void deleteChallengeMessage(CallbackQuery callbackQuery) {
-        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
-        Message message = rawMessage instanceof Message m ? m : null;
-        if (message == null || message.chat() == null || message.chat().id() == null || message.messageId() == null) {
+        Message message = accessibleCallbackMessage(callbackQuery);
+        if (message == null) {
             return;
         }
         try {
@@ -207,6 +195,15 @@ public class VerificationServiceImpl implements VerificationService {
         } catch (RuntimeException e) {
             log.warn("删除验证消息失败，chatId={}, messageId={}", message.chat().id(), message.messageId(), e);
         }
+    }
+
+    private Message accessibleCallbackMessage(CallbackQuery callbackQuery) {
+        Object rawMessage = callbackQuery.maybeInaccessibleMessage();
+        Message message = rawMessage instanceof Message m ? m : null;
+        if (message == null || message.chat() == null || message.chat().id() == null || message.messageId() == null) {
+            return null;
+        }
+        return message;
     }
 
     private record Challenge(String question, int answer, List<Integer> options) {

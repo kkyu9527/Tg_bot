@@ -13,9 +13,8 @@ public interface BotService {
      * @param chatId                群聊 ID
      * @param userMessageId         用户私聊中的原始消息 ID
      * @param botForwardedMessageId 机器人转发到群话题后的消息 ID
-     * @param topicId               话题 ID（可选）
      */
-    void handleUserMessage(User user, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId, Long topicId);
+    void handleUserMessage(User user, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId);
 
     /**
      * 处理用户发送的媒体组消息，并记录媒体组内每条消息的映射。
@@ -26,9 +25,8 @@ public interface BotService {
      * @param chatId                群聊 ID
      * @param userMessageId         用户私聊中的原始消息 ID
      * @param botForwardedMessageId 机器人转发到群话题后的消息 ID
-     * @param topicId               话题 ID（可选）
      */
-    void handleUserMediaGroupMessage(User user, String mediaGroupId, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId, Long topicId);
+    void handleUserMediaGroupMessage(User user, String mediaGroupId, Message.ContentType contentType, String chatId, Long userMessageId, Long botForwardedMessageId);
 
     /**
      * 处理主人在群话题中的回复，并记录群话题消息与用户私聊消息之间的映射。
@@ -36,11 +34,10 @@ public interface BotService {
      * @param owner              主人用户
      * @param contentType        消息内容类型
      * @param topicId            话题 ID
-     * @param chatId             群聊 ID
      * @param originalMessageId  群话题中的原始消息 ID
      * @param forwardedMessageId 回流到用户私聊后的消息 ID
      */
-    void handleOwnerReplyInTopic(User owner, Message.ContentType contentType, Long topicId, String chatId, Long originalMessageId, Long forwardedMessageId);
+    void handleOwnerReplyInTopic(User owner, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId);
 
     /**
      * 处理主人在群话题中的媒体组回复，并记录媒体组内每条消息的映射。
@@ -49,9 +46,8 @@ public interface BotService {
      * @param mediaGroupId       媒体组 ID
      * @param contentType        消息内容类型
      * @param topicId            话题 ID
-     * @param chatId             群聊 ID
      * @param originalMessageId  群话题中的原始消息 ID
      * @param forwardedMessageId 回流到用户私聊后的消息 ID
      */
-    void handleOwnerMediaGroupReplyInTopic(User owner, String mediaGroupId, Message.ContentType contentType, Long topicId, String chatId, Long originalMessageId, Long forwardedMessageId);
+    void handleOwnerMediaGroupReplyInTopic(User owner, String mediaGroupId, Message.ContentType contentType, Long topicId, Long originalMessageId, Long forwardedMessageId);
 }

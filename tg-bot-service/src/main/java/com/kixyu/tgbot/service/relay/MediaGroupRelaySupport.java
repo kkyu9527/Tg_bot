@@ -11,6 +11,26 @@ import java.util.concurrent.ScheduledFuture;
 final class MediaGroupRelaySupport {
 
     /**
+     * 媒体组消息到达后，首次检查缓冲是否稳定的延迟。
+     */
+    static final long FLUSH_CHECK_INITIAL_DELAY_MILLIS = 500L;
+
+    /**
+     * 媒体组缓冲稳定性检查间隔。
+     */
+    static final long FLUSH_CHECK_INTERVAL_MILLIS = 500L;
+
+    /**
+     * 消息数量连续稳定达到该次数后，认为媒体组已接收完成。
+     */
+    private static final int STABLE_CHECK_THRESHOLD = 3;
+
+    /**
+     * 即使消息数量未连续稳定，媒体组缓冲最长也只等待该时间。
+     */
+    private static final long MAX_BUFFER_WAIT_MILLIS = 8_000L;
+
+    /**
      * 媒体组聚合与批量发送的辅助逻辑。
      */
     private MediaGroupRelaySupport() {
@@ -254,7 +274,7 @@ final class MediaGroupRelaySupport {
                 buffer.setLastCount(currentCount);
             }
             long elapsed = System.currentTimeMillis() - buffer.getCreatedAtMillis();
-            shouldFlush = buffer.getStableCount() >= 3 || elapsed >= 8000;
+            shouldFlush = buffer.getStableCount() >= STABLE_CHECK_THRESHOLD || elapsed >= MAX_BUFFER_WAIT_MILLIS;
         }
 
         if (!shouldFlush) {

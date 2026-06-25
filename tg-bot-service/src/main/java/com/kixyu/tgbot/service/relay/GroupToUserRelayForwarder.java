@@ -149,8 +149,8 @@ class GroupToUserRelayForwarder {
             if (buffer.getScheduledCheck() == null || buffer.getScheduledCheck().isCancelled() || buffer.getScheduledCheck().isDone()) {
                 buffer.setScheduledCheck(mediaGroupScheduler.scheduleAtFixedRate(
                         () -> MediaGroupRelaySupport.checkAndFlush(buffer, () -> flushOwnerMediaGroup(buffer)),
-                        500,
-                        500,
+                        MediaGroupRelaySupport.FLUSH_CHECK_INITIAL_DELAY_MILLIS,
+                        MediaGroupRelaySupport.FLUSH_CHECK_INTERVAL_MILLIS,
                         TimeUnit.MILLISECONDS
                 ));
             }

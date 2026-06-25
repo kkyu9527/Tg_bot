@@ -1,6 +1,7 @@
 package com.kixyu.tgbot.telegram;
 
 import com.kixyu.tgbot.config.TelegramBotProperties;
+import com.kixyu.tgbot.config.BotPolicyConstants;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
@@ -28,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class TelegramApiClient {
 
-    public static final long DEFAULT_AUTO_DELETE_DELAY_MILLIS = 30_000L;
     private static final ScheduledExecutorService DELETE_SCHEDULER = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "telegram-delete-scheduler");
         thread.setDaemon(true);
@@ -108,7 +108,7 @@ public class TelegramApiClient {
      * @param response 发送响应对象
      */
     public void scheduleDeleteIfOk(Long chatId, SendResponse response) {
-        scheduleDeleteIfOk(chatId, response, DEFAULT_AUTO_DELETE_DELAY_MILLIS);
+        scheduleDeleteIfOk(chatId, response, BotPolicyConstants.millis(BotPolicyConstants.DEFAULT_HINT_AUTO_DELETE_DELAY));
     }
 
     /**
@@ -138,7 +138,7 @@ public class TelegramApiClient {
      * @param messageId 消息 ID
      */
     public void scheduleDelete(Long chatId, Integer messageId) {
-        scheduleDelete(chatId, messageId, DEFAULT_AUTO_DELETE_DELAY_MILLIS);
+        scheduleDelete(chatId, messageId, BotPolicyConstants.millis(BotPolicyConstants.DEFAULT_HINT_AUTO_DELETE_DELAY));
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.kixyu.tgbot.service.relay;
 
+import com.kixyu.tgbot.config.BotPolicyConstants;
 import com.kixyu.tgbot.domain.entity.Message.ContentType;
 import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
@@ -37,8 +38,6 @@ import java.util.regex.Pattern;
 @Slf4j
 class UserToGroupRelayForwarder {
 
-    private static final int LOW_TRUST_MESSAGE_LIMIT = 10;
-    private static final long LOW_TRUST_MESSAGE_INTERVAL_MILLIS = 10_000L;
     private static final Pattern LINK_PATTERN = Pattern.compile("(?i)\\b(?:https?://|www\\.|t\\.me/|telegram\\.me/|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|net|org|io|me|cn|cc|xyz|top|vip|app|dev|link|shop|site|online|live|info|biz|tv|gg)(?:/\\S*)?)");
     private static final Pattern USERNAME_MENTION_PATTERN = Pattern.compile("(?<![\\w.])[@＠][A-Za-z0-9_]{4,32}\\b");
 
@@ -199,8 +198,8 @@ class UserToGroupRelayForwarder {
             if (buffer.getScheduledCheck() == null || buffer.getScheduledCheck().isCancelled() || buffer.getScheduledCheck().isDone()) {
                 buffer.setScheduledCheck(mediaGroupScheduler.scheduleAtFixedRate(
                         () -> MediaGroupRelaySupport.checkAndFlush(buffer, () -> flushMediaGroup(buffer)),
-                        500,
-                        500,
+                        MediaGroupRelaySupport.FLUSH_CHECK_INITIAL_DELAY_MILLIS,
+                        MediaGroupRelaySupport.FLUSH_CHECK_INTERVAL_MILLIS,
                         TimeUnit.MILLISECONDS
                 ));
             }
@@ -344,7 +343,7 @@ class UserToGroupRelayForwarder {
                 user.id(),
                 MessageType.USER_MESSAGE
         );
-        if (forwardedUserMessageCount >= LOW_TRUST_MESSAGE_LIMIT) {
+        if (forwardedUserMessageCount >= BotPolicyConstants.LOW_TRUST_MESSAGE_LIMIT) {
             return false;
         }
 
@@ -366,7 +365,7 @@ class UserToGroupRelayForwarder {
             return false;
         }
         long elapsedMillis = Duration.between(createTime, LocalDateTime.now()).toMillis();
-        long remainingMillis = LOW_TRUST_MESSAGE_INTERVAL_MILLIS - elapsedMillis;
+        long remainingMillis = BotPolicyConstants.millis(BotPolicyConstants.LOW_TRUST_MESSAGE_INTERVAL) - elapsedMillis;
         if (remainingMillis <= 0) {
             return false;
         }
@@ -388,7 +387,7 @@ class UserToGroupRelayForwarder {
         if (privateChatId == null) {
             return;
         }
-        String text = "小提示\n\n新用户前 10 条消息暂时不能包含链接或 @用户名。\n这条消息没有转发给主人。";
+        String text = "小提示\n\n新用户前 " + BotPolicyConstants.LOW_TRUST_MESSAGE_LIMIT + " 条消息暂时不能包含链接或 @用户名。\n这条消息没有转发给主人。";
         try {
             SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
             telegramApiClient.scheduleDeleteIfOk(privateChatId, response);
@@ -402,7 +401,9 @@ class UserToGroupRelayForwarder {
             return;
         }
         long remainingSeconds = Math.max(1L, (long) Math.ceil(remainingMillis / 1000.0));
-        String text = "小提示\n\n新用户前 10 条消息需要间隔 10 秒。\n请 " + remainingSeconds + " 秒后再发送。";
+        String text = "小提示\n\n新用户前 " + BotPolicyConstants.LOW_TRUST_MESSAGE_LIMIT + " 条消息需要间隔 "
+                + BotPolicyConstants.formatDuration(BotPolicyConstants.LOW_TRUST_MESSAGE_INTERVAL)
+                + "。\n请 " + remainingSeconds + " 秒后再发送。";
         try {
             SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
             telegramApiClient.scheduleDeleteIfOk(privateChatId, response);

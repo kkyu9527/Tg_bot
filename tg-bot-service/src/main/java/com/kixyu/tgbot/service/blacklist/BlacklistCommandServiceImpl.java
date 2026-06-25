@@ -1,5 +1,6 @@
 package com.kixyu.tgbot.service.blacklist;
 
+import com.kixyu.tgbot.config.BotPolicyConstants;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.kixyu.tgbot.domain.entity.User;
@@ -20,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,9 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 @Slf4j
 class BlacklistCommandServiceImpl implements BlacklistCommandService {
-
-    private static final long BLOCKED_LIST_DELETE_DELAY_MILLIS = 330_000L;
-    private static final long ACTION_DEBOUNCE_MILLIS = 5_000L;
 
     private final TelegramBotProperties telegramBotProperties;
     private final TelegramApiClient telegramApiClient;
@@ -186,7 +183,8 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
             SendResponse response = telegramApiClient.execute(req);
             if (response != null && response.message() != null && response.message().messageId() != null) {
                 lastListMessageIds.put(listKey(chat.id(), threadId), response.message().messageId());
-                telegramApiClient.scheduleDelete(chat.id(), response.message().messageId(), BLOCKED_LIST_DELETE_DELAY_MILLIS);
+                telegramApiClient.scheduleDelete(chat.id(), response.message().messageId(),
+                        BotPolicyConstants.millis(BotPolicyConstants.BLOCKED_LIST_AUTO_DELETE_DELAY));
             }
         } catch (RuntimeException e) {
             log.warn("发送黑名单文本列表失败，chatId={}, threadId={}", chat.id(), threadId, e);
@@ -220,13 +218,7 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
     }
 
     private String buildBlockedListAutoDeleteHint() {
-        long seconds = Math.max(1L, Duration.ofMillis(BLOCKED_LIST_DELETE_DELAY_MILLIS).toSeconds());
-        String durationText;
-        if (seconds < 60L || seconds % 60L != 0L) {
-            durationText = seconds + " 秒";
-        } else {
-            durationText = (seconds / 60L) + " 分钟";
-        }
+        String durationText = BotPolicyConstants.formatDuration(BotPolicyConstants.BLOCKED_LIST_AUTO_DELETE_DELAY);
         return "\n\n提示：这条黑名单列表消息将在 " + durationText + " 后自动删除。";
     }
 
@@ -461,7 +453,7 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         if (previous == null) {
             return false;
         }
-        return now - previous < ACTION_DEBOUNCE_MILLIS;
+        return now - previous < BotPolicyConstants.millis(BotPolicyConstants.BLACKLIST_ACTION_DEBOUNCE_WINDOW);
     }
 
     private enum BlacklistAction {

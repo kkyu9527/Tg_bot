@@ -1,5 +1,6 @@
 package com.kixyu.tgbot.service.onboarding;
 
+import com.kixyu.tgbot.config.BotPolicyConstants;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
@@ -20,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.Optional;
 
 @Service
@@ -42,15 +42,7 @@ class OnboardingServiceImpl implements OnboardingService {
     private final UserConfigKeyboardFactory userConfigKeyboardFactory;
 
     private static String appendDefaultAutoDeleteHint(String text) {
-        return text + "\n（⏱️ " + formatDefaultAutoDeleteDuration() + "后会自动删除本条提示～）";
-    }
-
-    private static String formatDefaultAutoDeleteDuration() {
-        long seconds = Math.max(1L, Duration.ofMillis(TelegramApiClient.DEFAULT_AUTO_DELETE_DELAY_MILLIS).toSeconds());
-        if (seconds < 60L || seconds % 60L != 0L) {
-            return seconds + " 秒";
-        }
-        return (seconds / 60L) + " 分钟";
+        return text + "\n（⏱️ " + BotPolicyConstants.formatDuration(BotPolicyConstants.DEFAULT_HINT_AUTO_DELETE_DELAY) + "后会自动删除本条提示～）";
     }
 
     /**

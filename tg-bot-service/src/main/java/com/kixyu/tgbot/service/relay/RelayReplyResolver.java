@@ -1,4 +1,4 @@
-package com.kixyu.tgbot.service.relay.mapper;
+package com.kixyu.tgbot.service.relay;
 
 import com.kixyu.tgbot.domain.entity.Message.MessageType;
 import com.kixyu.tgbot.domain.entity.Topic;
@@ -12,7 +12,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class RelayReplyMapper {
+public class RelayReplyResolver {
 
     private final TopicService topicService;
     private final MessageService messageService;

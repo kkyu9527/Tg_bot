@@ -7,7 +7,6 @@ import com.kixyu.tgbot.service.bot.BotService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
 import com.kixyu.tgbot.service.message.MessageService;
 import com.kixyu.tgbot.service.user.UserService;
-import com.kixyu.tgbot.service.relay.mapper.RelayReplyMapper;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.kixyu.tgbot.telegram.TelegramApiErrorUtil;
 import com.pengrad.telegrambot.model.Message;
@@ -49,7 +48,7 @@ public class UserToGroupRelayForwarder {
     private final RelayTopicManager relayTopicManager;
     private final TelegramMessageMediaMapper telegramMessageMediaMapper;
     private final BotService botService;
-    private final RelayReplyMapper relayReplyMapper;
+    private final RelayReplyResolver relayReplyResolver;
     private final UserService userService;
     private final MessageService messageService;
 
@@ -142,7 +141,7 @@ public class UserToGroupRelayForwarder {
             CopyMessage copyMessage = new CopyMessage(groupId, privateMessage.chat().id(), privateMessage.messageId())
                     .messageThreadId(topic.getTopicId());
 
-            Integer replyTo = relayReplyMapper.resolveGroupReplyToMessageId(privateMessage);
+            Integer replyTo = relayReplyResolver.resolveGroupReplyToMessageId(privateMessage);
             if (replyTo != null) {
                 copyMessage.replyParameters(new ReplyParameters(replyTo).allowSendingWithoutReply(true));
             }

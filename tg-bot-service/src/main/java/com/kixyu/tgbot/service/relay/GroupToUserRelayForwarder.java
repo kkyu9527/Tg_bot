@@ -3,7 +3,6 @@ package com.kixyu.tgbot.service.relay;
 import com.kixyu.tgbot.domain.entity.Message.ContentType;
 import com.kixyu.tgbot.service.bot.BotService;
 import com.kixyu.tgbot.config.TelegramBotProperties;
-import com.kixyu.tgbot.service.relay.mapper.RelayReplyMapper;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;
@@ -34,7 +33,7 @@ public class GroupToUserRelayForwarder {
 
     private final TelegramApiClient telegramApiClient;
     private final TelegramBotProperties telegramBotProperties;
-    private final RelayReplyMapper relayReplyMapper;
+    private final RelayReplyResolver relayReplyResolver;
     private final TelegramMessageMediaMapper telegramMessageMediaMapper;
     private final BotService botService;
 
@@ -86,7 +85,7 @@ public class GroupToUserRelayForwarder {
             return;
         }
 
-        Long userId = relayReplyMapper.resolveTargetUserId(groupMessage, threadId, String.valueOf(groupId));
+        Long userId = relayReplyResolver.resolveTargetUserId(groupMessage, threadId, String.valueOf(groupId));
         if (userId == null) {
             log.warn("无法解析目标用户，跳过回流，threadId={}, messageId={}", threadId, groupMessage.messageId());
             return;
@@ -106,7 +105,7 @@ public class GroupToUserRelayForwarder {
         }
         CopyMessage copyMessage = new CopyMessage(userId, groupId, groupMessage.messageId());
 
-        Integer replyTo = relayReplyMapper.resolveUserReplyToMessageId(groupMessage);
+        Integer replyTo = relayReplyResolver.resolveUserReplyToMessageId(groupMessage);
         if (replyTo != null) {
             copyMessage.replyParameters(new ReplyParameters(replyTo).allowSendingWithoutReply(true));
         }

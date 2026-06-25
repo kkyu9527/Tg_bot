@@ -3,6 +3,9 @@ package com.kixyu.tgbot.service.verification;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.User;
 
+/**
+ * 用户人机验证服务。
+ */
 public interface VerificationService {
 
     String CALLBACK_PREFIX = "vf:";

@@ -25,6 +25,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Telegram Bot API 客户端封装。
+ */
 @Component
 @Slf4j
 public class TelegramApiClient {
@@ -61,16 +64,37 @@ public class TelegramApiClient {
         return bot.execute(request);
     }
 
+    /**
+     * 创建发送文本消息请求。
+     *
+     * @param chatId 聊天 ID
+     * @param text   消息文本
+     * @return       发送消息请求
+     */
     public SendMessage createSendMessage(Long chatId, String text) {
         Objects.requireNonNull(chatId, "chatId");
         return new SendMessage(chatId.longValue(), text);
     }
 
+    /**
+     * 创建发送图片消息请求。
+     *
+     * @param chatId 聊天 ID
+     * @param photo  图片字节内容
+     * @return       发送图片请求
+     */
     public SendPhoto createSendPhoto(Long chatId, byte[] photo) {
         Objects.requireNonNull(chatId, "chatId");
         return new SendPhoto(chatId.longValue(), photo);
     }
 
+    /**
+     * 回复 Telegram 回调查询。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param text          提示文本
+     * @param showAlert     是否弹窗展示
+     */
     public void answerCallback(CallbackQuery callbackQuery, String text, boolean showAlert) {
         if (callbackQuery == null || callbackQuery.id() == null) {
             return;

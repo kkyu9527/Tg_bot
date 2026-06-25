@@ -4,6 +4,9 @@ import com.kixyu.tgbot.domain.entity.Message;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.pengrad.telegrambot.model.Chat;
 
+/**
+ * 命令触发的 Telegram 消息与话题清理服务。
+ */
 public interface CommandMessageCleanupService {
 
     /**

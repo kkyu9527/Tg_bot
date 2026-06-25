@@ -4,6 +4,9 @@ import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;
 
+/**
+ * 用户引导与命令处理服务。
+ */
 public interface OnboardingService {
 
     /**

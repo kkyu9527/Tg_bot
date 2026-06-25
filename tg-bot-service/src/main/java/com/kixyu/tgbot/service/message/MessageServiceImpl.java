@@ -9,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 消息映射数据服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

@@ -8,6 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import com.pengrad.telegrambot.model.User;
 
+/**
+ * 机器人消息业务服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

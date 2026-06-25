@@ -22,6 +22,9 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.EditMessageCaption;
 import com.pengrad.telegrambot.request.EditMessageText;
 
+/**
+ * Telegram Webhook 更新处理服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

@@ -2,6 +2,9 @@ package com.kixyu.tgbot.service.relay;
 
 import com.pengrad.telegrambot.model.Message;
 
+/**
+ * Telegram 私聊与群话题之间的消息中继服务。
+ */
 public interface MessageRelayService {
 
     /**

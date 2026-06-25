@@ -4,6 +4,9 @@ import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
 
+/**
+ * 黑名单命令与按钮回调处理服务。
+ */
 public interface BlacklistCommandService {
 
     /**

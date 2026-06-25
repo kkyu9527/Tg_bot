@@ -25,6 +25,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 群话题主人消息回流到用户私聊的处理器。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -39,6 +42,14 @@ class GroupToUserRelayForwarder {
     private final ScheduledExecutorService mediaGroupScheduler = Executors.newSingleThreadScheduledExecutor();
     private final ConcurrentHashMap<String, MediaGroupRelaySupport.MessageBuffer<OwnerMediaGroupContext>> ownerMediaGroupBuffers = new ConcurrentHashMap<>();
 
+    /**
+     * 主人媒体组回流缓冲上下文。
+     *
+     * @param groupChatId  群聊 ID
+     * @param threadId     话题线程 ID
+     * @param userId       目标用户 ID
+     * @param mediaGroupId 媒体组 ID
+     */
     private record OwnerMediaGroupContext(String groupChatId, Long threadId, Long userId, String mediaGroupId) {
     }
 

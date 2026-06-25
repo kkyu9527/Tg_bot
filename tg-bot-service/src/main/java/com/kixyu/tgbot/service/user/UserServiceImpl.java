@@ -9,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Telegram 用户数据服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -176,6 +179,15 @@ class UserServiceImpl implements UserService {
         return userRepository.findByBlockedTrue();
     }
 
+    /**
+     * 更新用户资料字段。
+     *
+     * @param user      用户实体
+     * @param username  用户名
+     * @param firstName 名
+     * @param lastName  姓
+     * @return          如果资料发生变化则返回 true，否则返回 false
+     */
     private boolean updateProfile(User user, String username, String firstName, String lastName) {
         boolean changed = false;
         if (username != null && !username.equals(user.getUsername())) {

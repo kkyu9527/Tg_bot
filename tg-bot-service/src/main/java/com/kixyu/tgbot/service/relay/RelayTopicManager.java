@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+/**
+ * 转发链路中的用户话题获取与重建管理器。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -54,6 +57,13 @@ class RelayTopicManager {
         return createAndPersistTopic(user, groupChatId);
     }
 
+    /**
+     * 创建群话题并保存本地映射。
+     *
+     * @param user        用户
+     * @param groupChatId 群 chatId（字符串形式）
+     * @return            新建的话题实体；创建失败则返回 null
+     */
     private Topic createAndPersistTopic(User user, String groupChatId) {
         String topicName = Topic.generateTopicName(user.firstName(), user.lastName(), user.username(), user.id());
         Long threadId = onboardingSupport.createForumTopic(groupChatId, topicName);

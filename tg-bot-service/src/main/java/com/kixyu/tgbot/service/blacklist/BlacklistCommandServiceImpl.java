@@ -26,6 +26,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 黑名单命令与按钮回调处理服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -40,6 +43,13 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
     private final Map<String, Integer> lastListMessageIds = new ConcurrentHashMap<>();
     private final Map<String, Long> recentActionTimes = new ConcurrentHashMap<>();
 
+    /**
+     * 尝试处理群内黑名单管理消息。
+     *
+     * @param message Telegram 消息
+     * @param chat    消息所在聊天
+     * @return        如果消息已被黑名单功能消费则返回 true，否则返回 false
+     */
     @Override
     public boolean handleIfBlacklistMessage(Message message, Chat chat) {
         if (message == null || message.from() == null || chat == null || chat.id() == null || message.text() == null) {
@@ -65,6 +75,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return true;
     }
 
+    /**
+     * 尝试处理黑名单相关按钮回调。
+     *
+     * @param callbackQuery Telegram 回调查询
+     * @return              如果回调已被黑名单功能消费则返回 true，否则返回 false
+     */
     @Override
     public boolean handleIfBlacklistCallback(CallbackQuery callbackQuery) {
         if (callbackQuery == null || callbackQuery.data() == null || !callbackQuery.data().startsWith("bl:")) {
@@ -111,6 +127,14 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return true;
     }
 
+    /**
+     * 执行拉黑操作并刷新关联话题状态。
+     *
+     * @param message             触发消息
+     * @param chat                消息所在聊天
+     * @param explicitUserId      显式指定的用户 ID
+     * @param deleteSourceMessage 是否删除触发消息
+     */
     private void block(Message message, Chat chat, Long explicitUserId, boolean deleteSourceMessage) {
         Topic topic = null;
         Long targetUserId = explicitUserId;
@@ -139,6 +163,14 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         log.info("已通过黑名单入口拉黑用户，userId={}, sourceMessageId={}", targetUserId, message.messageId());
     }
 
+    /**
+     * 执行取消拉黑操作并刷新关联话题状态。
+     *
+     * @param message             触发消息
+     * @param chat                消息所在聊天
+     * @param explicitUserId      显式指定的用户 ID
+     * @param deleteSourceMessage 是否删除触发消息
+     */
     private void unblock(Message message, Chat chat, Long explicitUserId, boolean deleteSourceMessage) {
         Topic topic = null;
         Long targetUserId = explicitUserId;
@@ -167,6 +199,13 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         log.info("已通过黑名单入口取消拉黑用户，userId={}, sourceMessageId={}", targetUserId, message.messageId());
     }
 
+    /**
+     * 发送已拉黑用户列表。
+     *
+     * @param message             触发消息
+     * @param chat                消息所在聊天
+     * @param deleteSourceMessage 是否删除触发消息
+     */
     private void sendBlockedList(Message message, Chat chat, boolean deleteSourceMessage) {
         Long threadId = message.messageThreadId();
         if (isDuplicateAction("list", chat.id(), threadId, null)) {
@@ -192,6 +231,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         deleteSourceMessage(chat.id(), message, deleteSourceMessage);
     }
 
+    /**
+     * 构建黑名单列表文本。
+     *
+     * @param blockedUsers 已拉黑用户列表
+     * @return             黑名单列表文本
+     */
     private String buildBlockedListText(List<User> blockedUsers) {
         if (blockedUsers == null || blockedUsers.isEmpty()) {
             return "✅ 当前没有已拉黑的用户。\n\n" + buildCommandHelpText() + buildBlockedListAutoDeleteHint();
@@ -217,11 +262,21 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return text.toString();
     }
 
+    /**
+     * 构建黑名单列表自动删除提示。
+     *
+     * @return 自动删除提示文本
+     */
     private String buildBlockedListAutoDeleteHint() {
         String durationText = BotPolicyConstants.formatDuration(BotPolicyConstants.BLOCKED_LIST_AUTO_DELETE_DELAY);
         return "\n\n提示：这条黑名单列表消息将在 " + durationText + " 后自动删除。";
     }
 
+    /**
+     * 构建黑名单命令帮助文本。
+     *
+     * @return 命令帮助文本
+     */
     private String buildCommandHelpText() {
         return """
                 可用命令：
@@ -235,6 +290,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
                 """.stripTrailing();
     }
 
+    /**
+     * 获取用户展示名称。
+     *
+     * @param user 用户实体
+     * @return     展示名称
+     */
     private String displayName(User user) {
         if (user.getUsername() != null && !user.getUsername().isBlank()) {
             return "@" + user.getUsername();
@@ -242,6 +303,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return Topic.generateTopicName(user.getFirstName(), user.getLastName(), null, user.getUserId());
     }
 
+    /**
+     * 退出黑名单列表查看并删除列表消息。
+     *
+     * @param message 触发消息
+     * @param chat    消息所在聊天
+     */
     private void exitBlockedList(Message message, Chat chat) {
         Long threadId = message.messageThreadId();
         if (isDuplicateAction("exit_list", chat.id(), threadId, null)) {
@@ -265,6 +332,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         deleteCommandMessage(chat.id(), message);
     }
 
+    /**
+     * 解析黑名单文本命令。
+     *
+     * @param rawText 原始消息文本
+     * @return        解析后的命令；无法解析时返回 null
+     */
     private ParsedBlacklistCommand parse(String rawText) {
         String text = rawText == null ? "" : rawText.trim();
         if (text.isEmpty()) {
@@ -305,6 +378,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return null;
     }
 
+    /**
+     * 规范化命令文本。
+     *
+     * @param text 原始命令文本
+     * @return     规范化后的命令文本
+     */
     private String normalizeCommandText(String text) {
         String normalized = text.trim();
         if (normalized.startsWith("/") || normalized.startsWith(".")) {
@@ -320,6 +399,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return normalized.trim().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * 从内嵌取消拉黑命令中解析用户 ID。
+     *
+     * @param text 规范化后的命令文本
+     * @return     用户 ID；无法解析时返回 null
+     */
     private Long parseEmbeddedUnblockUserId(String text) {
         String prefix = "unblock_";
         if (!text.startsWith(prefix)) {
@@ -328,6 +413,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return parseUserId(text.substring(prefix.length()));
     }
 
+    /**
+     * 解析用户 ID。
+     *
+     * @param text 用户 ID 文本
+     * @return     用户 ID；无法解析时返回 null
+     */
     private Long parseUserId(String text) {
         if (text == null || text.isBlank()) {
             return null;
@@ -339,6 +430,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
     }
 
+    /**
+     * 根据当前群话题消息查找对应话题。
+     *
+     * @param message 群话题消息
+     * @return        当前话题；无法匹配时返回 null
+     */
     private Topic findCurrentTopic(Message message) {
         Long groupId = telegramBotProperties.getGroupId();
         Long threadId = message.messageThreadId();
@@ -351,6 +448,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
                 .orElse(null);
     }
 
+    /**
+     * 根据用户 ID 查找当前配置群中的话题。
+     *
+     * @param userId 用户 ID
+     * @return       用户话题；无法匹配时返回 null
+     */
     private Topic findTopicByUserId(Long userId) {
         Long groupId = telegramBotProperties.getGroupId();
         if (groupId == null || userId == null) {
@@ -359,6 +462,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return topicService.getTopicByUserIdAndChatId(userId, String.valueOf(groupId)).orElse(null);
     }
 
+    /**
+     * 刷新话题欢迎消息上的配置按钮。
+     *
+     * @param chatId 聊天 ID
+     * @param topic  话题实体
+     */
     private void refreshTopicKeyboard(Long chatId, Topic topic) {
         if (chatId == null || topic == null || topic.getWelcomeMessageId() == null || topic.getWelcomeMessageId() > Integer.MAX_VALUE) {
             return;
@@ -371,6 +480,14 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
     }
 
+    /**
+     * 刷新当前消息上的配置按钮。
+     *
+     * @param chatId              聊天 ID
+     * @param message             当前消息
+     * @param topic               话题实体
+     * @param deleteSourceMessage 是否删除触发消息
+     */
     private void refreshSourceKeyboard(Long chatId, Message message, Topic topic, boolean deleteSourceMessage) {
         if (deleteSourceMessage || chatId == null || message == null || message.messageId() == null || topic == null) {
             return;
@@ -387,6 +504,11 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
     }
 
+    /**
+     * 向用户发送已拉黑通知。
+     *
+     * @param userId 用户 ID
+     */
     private void sendBlockedNotice(Long userId) {
         if (userId == null) {
             return;
@@ -399,6 +521,11 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
     }
 
+    /**
+     * 向用户发送已取消拉黑通知。
+     *
+     * @param userId 用户 ID
+     */
     private void sendUnblockedNotice(Long userId) {
         if (userId == null) {
             return;
@@ -411,6 +538,13 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
     }
 
+    /**
+     * 在指定聊天或话题中发送临时提示。
+     *
+     * @param chatId   聊天 ID
+     * @param threadId 话题线程 ID
+     * @param text     提示文本
+     */
     private void sendHint(Long chatId, Long threadId, String text) {
         if (chatId == null || text == null || text.isBlank()) {
             return;
@@ -427,10 +561,23 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
     }
 
+    /**
+     * 删除命令消息。
+     *
+     * @param chatId  聊天 ID
+     * @param message 命令消息
+     */
     private void deleteCommandMessage(Long chatId, Message message) {
         deleteSourceMessage(chatId, message, true);
     }
 
+    /**
+     * 按需删除来源消息。
+     *
+     * @param chatId  聊天 ID
+     * @param message 来源消息
+     * @param delete  是否删除
+     */
     private void deleteSourceMessage(Long chatId, Message message, boolean delete) {
         if (chatId != null && message != null && message.messageId() != null) {
             if (delete) {
@@ -439,10 +586,26 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         }
     }
 
+    /**
+     * 构建黑名单列表消息缓存键。
+     *
+     * @param chatId   聊天 ID
+     * @param threadId 话题线程 ID
+     * @return         缓存键
+     */
     private String listKey(Long chatId, Long threadId) {
         return chatId + ":" + (threadId == null ? 0L : threadId);
     }
 
+    /**
+     * 判断当前操作是否为短时间内重复操作。
+     *
+     * @param action   操作名称
+     * @param chatId   聊天 ID
+     * @param threadId 话题线程 ID
+     * @param userId   目标用户 ID
+     * @return         重复操作时返回 true，否则返回 false
+     */
     private boolean isDuplicateAction(String action, Long chatId, Long threadId, Long userId) {
         if (action == null || chatId == null) {
             return false;
@@ -456,6 +619,9 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return now - previous < BotPolicyConstants.millis(BotPolicyConstants.BLACKLIST_ACTION_DEBOUNCE_WINDOW);
     }
 
+    /**
+     * 黑名单文本命令动作。
+     */
     private enum BlacklistAction {
         BLOCK,
         UNBLOCK,
@@ -463,12 +629,30 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         EXIT_LIST
     }
 
+    /**
+     * 解析后的黑名单文本命令。
+     *
+     * @param action 黑名单动作
+     * @param userId 目标用户 ID
+     */
     private record ParsedBlacklistCommand(BlacklistAction action, Long userId) {
     }
 
+    /**
+     * 解析后的黑名单按钮回调动作。
+     *
+     * @param action 动作名称
+     * @param userId 目标用户 ID
+     */
     private record CallbackAction(String action, long userId) {
     }
 
+    /**
+     * 解析黑名单按钮回调数据。
+     *
+     * @param data 回调数据
+     * @return     解析后的回调动作；无法解析时返回 null
+     */
     private CallbackAction parseCallbackAction(String data) {
         String[] parts = data.split(":");
         if (parts.length != 3) {
@@ -483,6 +667,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return new CallbackAction(parts[1], userId);
     }
 
+    /**
+     * 判断回调是否来自非主人用户。
+     *
+     * @param callbackQuery 回调查询对象
+     * @return              非主人用户时返回 true，否则返回 false
+     */
     private boolean isNotOwnerCallback(CallbackQuery callbackQuery) {
         Long ownerId = telegramBotProperties.getOwnerId();
         if (ownerId != null && (callbackQuery.from() == null || !ownerId.equals(callbackQuery.from().id()))) {
@@ -492,6 +682,12 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         return false;
     }
 
+    /**
+     * 回复黑名单相关按钮回调。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param text          提示文本
+     */
     private void answer(CallbackQuery callbackQuery, String text) {
         telegramApiClient.answerCallback(callbackQuery, text, true);
     }

@@ -4,6 +4,9 @@ import org.springframework.stereotype.Component;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.MessageEntity;
 
+/**
+ * Telegram 命令消息提取器。
+ */
 @Component
 public class TelegramCommandExtractor {
 

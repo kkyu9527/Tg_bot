@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Telegram 群话题数据服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

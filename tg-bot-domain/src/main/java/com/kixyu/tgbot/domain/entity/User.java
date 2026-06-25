@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Telegram 用户实体。
+ */
 @Entity
 @Table(name = "users")
 @Data
@@ -52,7 +55,9 @@ public class User {
     @Column(name = "update_time")
     private LocalDateTime updateTime;
 
-    // 当用户实体被持久化到数据库时调用，设置创建时间和更新时间为当前时间
+    /**
+     * 用户实体首次持久化前初始化默认状态和时间字段。
+     */
     @PrePersist
     protected void onCreate() {
         if (blocked == null) {
@@ -65,7 +70,9 @@ public class User {
         updateTime = LocalDateTime.now();
     }
 
-    // 当用户实体被更新到数据库时调用，设置更新时间为当前时间
+    /**
+     * 用户实体更新前刷新更新时间。
+     */
     @PreUpdate
     protected void onUpdate() {
         updateTime = LocalDateTime.now();

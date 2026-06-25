@@ -4,6 +4,9 @@ import com.kixyu.tgbot.domain.entity.Message;
 import com.kixyu.tgbot.domain.entity.Topic;
 import com.pengrad.telegrambot.model.User;
 
+/**
+ * 机器人通用消息与话题操作服务。
+ */
 public interface BotCommonService {
 
     /**

@@ -4,6 +4,9 @@ import com.kixyu.tgbot.domain.entity.User;
 
 import java.util.List;
 
+/**
+ * Telegram 用户数据服务。
+ */
 public interface UserService {
 
     /**

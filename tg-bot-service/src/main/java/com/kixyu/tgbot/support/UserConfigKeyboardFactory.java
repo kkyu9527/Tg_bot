@@ -8,6 +8,9 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * 用户话题配置按钮键盘工厂。
+ */
 @Component
 @RequiredArgsConstructor
 public class UserConfigKeyboardFactory {
@@ -15,6 +18,13 @@ public class UserConfigKeyboardFactory {
     private final TopicService topicService;
     private final UserService userService;
 
+    /**
+     * 根据话题 ID 和群聊 ID 构建配置按钮键盘。
+     *
+     * @param topicId     话题 ID
+     * @param groupChatId 群聊 ID
+     * @return 配置按钮键盘；未找到话题时返回空键盘
+     */
     public InlineKeyboardMarkup buildForTopic(Long topicId, String groupChatId) {
         Topic topic = null;
         if (topicId != null && groupChatId != null) {
@@ -25,6 +35,12 @@ public class UserConfigKeyboardFactory {
         return topic == null ? new InlineKeyboardMarkup() : buildForTopic(topic);
     }
 
+    /**
+     * 根据话题实体构建配置按钮键盘。
+     *
+     * @param topic 话题实体
+     * @return 配置按钮键盘
+     */
     public InlineKeyboardMarkup buildForTopic(Topic topic) {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         if (topic == null) {
@@ -54,6 +70,12 @@ public class UserConfigKeyboardFactory {
         return markup;
     }
 
+    /**
+     * 根据用户当前黑名单状态构建拉黑或取消拉黑按钮。
+     *
+     * @param userId 用户 ID
+     * @return 黑名单操作按钮
+     */
     private InlineKeyboardButton buildBlockButton(Long userId) {
         boolean blocked = userService.isBlocked(userId);
         String blockText = blocked ? "取消拉黑" : "拉黑此用户";

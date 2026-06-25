@@ -2,6 +2,9 @@ package com.kixyu.tgbot.telegram;
 
 import com.pengrad.telegrambot.response.BaseResponse;
 
+/**
+ * Telegram API 错误响应判断工具。
+ */
 public final class TelegramApiErrorUtil {
 
     /**
@@ -53,4 +56,3 @@ public final class TelegramApiErrorUtil {
         return response.description();
     }
 }
-

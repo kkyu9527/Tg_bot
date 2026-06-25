@@ -23,6 +23,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+/**
+ * 用户引导与命令处理服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -41,6 +44,12 @@ class OnboardingServiceImpl implements OnboardingService {
     private final VerificationService verificationService;
     private final UserConfigKeyboardFactory userConfigKeyboardFactory;
 
+    /**
+     * 为提示文本追加默认自动删除说明。
+     *
+     * @param text 原始提示文本
+     * @return     追加自动删除说明后的提示文本
+     */
     private static String appendDefaultAutoDeleteHint(String text) {
         return text + "\n（⏱️ " + BotPolicyConstants.formatDuration(BotPolicyConstants.DEFAULT_HINT_AUTO_DELETE_DELAY) + "后会自动删除本条提示～）";
     }
@@ -110,6 +119,12 @@ class OnboardingServiceImpl implements OnboardingService {
         handleVerifiedStart(user, privateChatId);
     }
 
+    /**
+     * 处理已验证用户的启动流程。
+     *
+     * @param user          触发启动流程的用户
+     * @param privateChatId 用户私聊窗口的聊天 ID
+     */
     @Override
     public void handleVerifiedStart(User user, Long privateChatId) {
         try {
@@ -451,6 +466,15 @@ class OnboardingServiceImpl implements OnboardingService {
         }
     }
 
+    /**
+     * 发送临时提示消息，并按默认延迟自动删除。
+     *
+     * @param updateId       更新 ID
+     * @param chatId         聊天 ID
+     * @param threadId       话题线程 ID
+     * @param text           提示文本
+     * @param failureMessage 发送失败时的日志前缀
+     */
     private void sendTemporaryHint(Integer updateId, Long chatId, Long threadId, String text, String failureMessage) {
         if (chatId == null || text == null || text.isBlank()) {
             return;

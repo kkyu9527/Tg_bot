@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 命令触发的 Telegram 消息与话题清理服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -262,6 +265,12 @@ class CommandMessageCleanupServiceImpl implements CommandMessageCleanupService {
         return new PairedMessageIds(userMessageId, groupMessageId);
     }
 
+    /**
+     * 私聊与群聊中的成对消息 ID。
+     *
+     * @param userMessageId  私聊消息 ID
+     * @param groupMessageId 群话题消息 ID
+     */
     private record PairedMessageIds(Long userMessageId, Long groupMessageId) {
     }
 

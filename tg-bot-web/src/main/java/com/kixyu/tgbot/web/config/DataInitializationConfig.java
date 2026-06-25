@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * 应用启动后的数据初始化配置。
+ */
 @Configuration
 @RequiredArgsConstructor
 @Slf4j

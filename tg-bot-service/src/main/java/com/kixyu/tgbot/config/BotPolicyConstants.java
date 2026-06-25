@@ -17,7 +17,7 @@ public final class BotPolicyConstants {
     /**
      * 黑名单列表消息自动删除延迟。列表比普通提示保留更久，方便主人查看和操作。
      */
-    public static final Duration BLOCKED_LIST_AUTO_DELETE_DELAY = Duration.ofMinutes(5).plusSeconds(30);
+    public static final Duration BLOCKED_LIST_AUTO_DELETE_DELAY = Duration.ofMinutes(2);
 
     /**
      * 黑名单命令/按钮操作防抖窗口，避免重复点击或重复命令造成连续执行。
@@ -34,13 +34,28 @@ public final class BotPolicyConstants {
      */
     public static final Duration LOW_TRUST_MESSAGE_INTERVAL = Duration.ofSeconds(10);
 
+    /**
+     * 工具类，禁止实例化。
+     */
     private BotPolicyConstants() {
     }
 
+    /**
+     * 将 Duration 转为毫秒。
+     *
+     * @param duration 时长
+     * @return         毫秒数；duration 为空时返回 0
+     */
     public static long millis(Duration duration) {
         return duration == null ? 0L : duration.toMillis();
     }
 
+    /**
+     * 将时长格式化为中文展示文本。
+     *
+     * @param duration 时长
+     * @return         中文时长文本
+     */
     public static String formatDuration(Duration duration) {
         long seconds = Math.max(1L, duration == null ? 0L : duration.toSeconds());
         if (seconds < 60L || seconds % 60L != 0L) {

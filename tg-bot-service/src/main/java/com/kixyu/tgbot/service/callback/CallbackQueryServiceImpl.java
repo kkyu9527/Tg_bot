@@ -17,6 +17,9 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
 import com.pengrad.telegrambot.response.SendResponse;
 
+/**
+ * Telegram 按钮回调分发服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -64,6 +67,12 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
         answer(callbackQuery, null);
     }
 
+    /**
+     * 从回调消息或回调用户中解析私聊聊天 ID。
+     *
+     * @param callbackQuery 回调查询对象
+     * @return              私聊聊天 ID；无法解析时返回 null
+     */
     private Long resolvePrivateChatId(CallbackQuery callbackQuery) {
         Object rawMessage = callbackQuery.maybeInaccessibleMessage();
         Message message = rawMessage instanceof Message m ? m : null;
@@ -99,6 +108,12 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
         return false;
     }
 
+    /**
+     * 解析后的按钮回调动作。
+     *
+     * @param action 动作名称
+     * @param id     目标 ID
+     */
     private record CallbackAction(String action, long id) {
     }
 

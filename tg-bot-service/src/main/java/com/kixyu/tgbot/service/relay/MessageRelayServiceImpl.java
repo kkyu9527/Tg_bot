@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.pengrad.telegrambot.model.Message;
 
+/**
+ * 私聊与群话题消息中继服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 class MessageRelayServiceImpl implements MessageRelayService {

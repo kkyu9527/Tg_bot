@@ -7,6 +7,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Telegram 用户数据仓储。
+ */
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 

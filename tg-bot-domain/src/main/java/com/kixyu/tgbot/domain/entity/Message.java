@@ -9,6 +9,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import java.time.LocalDateTime;
 
+/**
+ * Telegram 消息映射实体。
+ */
 @Entity
 @Table(name = "messages")
 @Data
@@ -73,26 +76,35 @@ public class Message {
     @Column(name = "update_time")
     private LocalDateTime updateTime;
 
-    // 在保存前设置创建时间
+    /**
+     * 消息实体首次持久化前初始化时间字段。
+     */
     @PrePersist
     protected void onCreate() {
         createTime = LocalDateTime.now();
         updateTime = LocalDateTime.now();
     }
 
-    // 在更新前设置更新时间
+    /**
+     * 消息实体更新前刷新更新时间。
+     */
     @PreUpdate
     protected void onUpdate() {
         updateTime = LocalDateTime.now();
     }
 
-    // 消息类型枚举
+    /**
+     * 消息在转发链路中的来源类型。
+     */
     public enum MessageType {
         USER_MESSAGE,           // 用户原始消息
         BOT_FORWARDED_MESSAGE,  // 机器人转发的消息
         OWNER_MESSAGE           // 主人在话题中的回复
     }
 
+    /**
+     * Telegram 消息内容类型。
+     */
     public enum ContentType {
         TEXT,               // 纯文本
         PHOTO,              // 图片

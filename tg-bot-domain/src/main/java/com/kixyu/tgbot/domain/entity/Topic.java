@@ -7,6 +7,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import java.time.LocalDateTime;
 
+/**
+ * 用户在群组中对应的 Telegram 话题实体。
+ */
 @Entity
 @Table(name = "topics")
 @Data
@@ -57,23 +60,34 @@ public class Topic {
     @Column(name = "update_time")
     private LocalDateTime updateTime;
 
-    // 在保存前设置创建时间
+    /**
+     * 话题实体首次持久化前初始化时间字段。
+     */
     @PrePersist
     protected void onCreate() {
         createTime = LocalDateTime.now();
         updateTime = LocalDateTime.now();
     }
 
-    // 在更新前设置更新时间
+    /**
+     * 话题实体更新前刷新更新时间。
+     */
     @PreUpdate
     protected void onUpdate() {
         updateTime = LocalDateTime.now();
     }
 
     /**
-     * 根据用户信息生成话题名称
+     * 根据用户信息生成话题名称。
+     *
      * 规则：优先使用firstName+lastName，若缺少某个则使用另一个，
      * 如果都没有则使用username，如果还是没有则使用id
+     *
+     * @param firstName 用户名
+     * @param lastName  用户姓
+     * @param username  Telegram 用户名
+     * @param userId    用户 ID
+     * @return          生成后的话题名称
      */
     public static String generateTopicName(String firstName, String lastName, String username, Long userId) {
         StringBuilder topicName = new StringBuilder();

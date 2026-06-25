@@ -28,6 +28,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
 
+/**
+ * 用户引导流程的 Telegram 话题与欢迎消息辅助组件。
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -160,6 +163,12 @@ public class OnboardingSupport {
         }
     }
 
+    /**
+     * 移除话题名称中的拉黑前缀。
+     *
+     * @param topicName 原始话题名称
+     * @return          移除拉黑前缀后的话题名称
+     */
     private String removeBlockedTopicNamePrefix(String topicName) {
         String result = topicName == null ? "" : topicName.strip();
         while (result.startsWith(BLOCKED_TOPIC_NAME_PREFIX)) {

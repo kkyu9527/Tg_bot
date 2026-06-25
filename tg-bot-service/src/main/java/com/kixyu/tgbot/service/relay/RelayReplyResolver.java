@@ -10,6 +10,9 @@ import com.pengrad.telegrambot.model.Message;
 
 import java.util.Optional;
 
+/**
+ * 私聊与群话题之间 replyTo 关系解析器。
+ */
 @Service
 @RequiredArgsConstructor
 class RelayReplyResolver {

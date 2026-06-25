@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * 用户人机验证服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,6 +34,12 @@ class VerificationServiceImpl implements VerificationService {
     private final TelegramApiClient telegramApiClient;
     private final UserService userService;
 
+    /**
+     * 发送人机验证题。
+     *
+     * @param user          待验证用户
+     * @param privateChatId 私聊聊天 ID
+     */
     @Override
     public void sendChallenge(User user, Long privateChatId) {
         if (user == null || user.id() == null || privateChatId == null) {
@@ -56,6 +65,12 @@ class VerificationServiceImpl implements VerificationService {
         }
     }
 
+    /**
+     * 处理人机验证按钮回调。
+     *
+     * @param callbackQuery 回调查询对象
+     * @return 验证通过时返回 true，否则返回 false
+     */
     @Override
     public boolean handleVerificationCallback(CallbackQuery callbackQuery) {
         if (callbackQuery == null || callbackQuery.data() == null) {
@@ -84,6 +99,12 @@ class VerificationServiceImpl implements VerificationService {
         return true;
     }
 
+    /**
+     * 向未验证用户发送验证提示。
+     *
+     * @param user          未验证用户
+     * @param privateChatId 私聊聊天 ID
+     */
     @Override
     public void remindVerificationRequired(User user, Long privateChatId) {
         if (user == null || user.id() == null || privateChatId == null) {
@@ -97,6 +118,13 @@ class VerificationServiceImpl implements VerificationService {
         }
     }
 
+    /**
+     * 构建人机验证选项键盘。
+     *
+     * @param userId    用户 ID
+     * @param challenge 验证题
+     * @return          验证选项键盘
+     */
     private InlineKeyboardMarkup buildKeyboard(Long userId, Challenge challenge) {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<Integer> options = challenge.options();
@@ -113,11 +141,24 @@ class VerificationServiceImpl implements VerificationService {
         return markup;
     }
 
+    /**
+     * 构建单个验证答案按钮。
+     *
+     * @param userId 用户 ID
+     * @param answer 正确答案
+     * @param option 当前选项值
+     * @return       验证答案按钮
+     */
     private InlineKeyboardButton buildOption(Long userId, int answer, int option) {
         return new InlineKeyboardButton(String.valueOf(option))
                 .callbackData(CALLBACK_PREFIX + userId + ":" + answer + ":" + option);
     }
 
+    /**
+     * 生成一道简单加减法验证题。
+     *
+     * @return 验证题
+     */
     private Challenge generateChallenge() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         boolean addition = random.nextBoolean();
@@ -150,6 +191,12 @@ class VerificationServiceImpl implements VerificationService {
         return new Challenge(left + operator + right + " = ?", answer, shuffledOptions);
     }
 
+    /**
+     * 解析验证回调数据。
+     *
+     * @param data 回调数据
+     * @return     解析后的验证回调数据；解析失败时返回 null
+     */
     private VerificationCallback parse(String data) {
         if (data == null || !data.startsWith(CALLBACK_PREFIX)) {
             return null;
@@ -169,10 +216,22 @@ class VerificationServiceImpl implements VerificationService {
         }
     }
 
+    /**
+     * 回复 Telegram 回调查询。
+     *
+     * @param callbackQuery 回调查询对象
+     * @param text          提示文本
+     * @param showAlert     是否弹窗展示
+     */
     private void answer(CallbackQuery callbackQuery, String text, boolean showAlert) {
         telegramApiClient.answerCallback(callbackQuery, text, showAlert);
     }
 
+    /**
+     * 将验证消息更新为通过状态。
+     *
+     * @param callbackQuery 回调查询对象
+     */
     private void editChallengeMessage(CallbackQuery callbackQuery) {
         Message message = accessibleCallbackMessage(callbackQuery);
         if (message == null) {
@@ -185,6 +244,11 @@ class VerificationServiceImpl implements VerificationService {
         }
     }
 
+    /**
+     * 删除验证失败的验证消息。
+     *
+     * @param callbackQuery 回调查询对象
+     */
     private void deleteChallengeMessage(CallbackQuery callbackQuery) {
         Message message = accessibleCallbackMessage(callbackQuery);
         if (message == null) {
@@ -197,6 +261,12 @@ class VerificationServiceImpl implements VerificationService {
         }
     }
 
+    /**
+     * 从回调查询中获取可访问的消息对象。
+     *
+     * @param callbackQuery 回调查询对象
+     * @return              可访问的消息；不可访问时返回 null
+     */
     private Message accessibleCallbackMessage(CallbackQuery callbackQuery) {
         Object rawMessage = callbackQuery.maybeInaccessibleMessage();
         Message message = rawMessage instanceof Message m ? m : null;
@@ -206,9 +276,23 @@ class VerificationServiceImpl implements VerificationService {
         return message;
     }
 
+    /**
+     * 人机验证题数据。
+     *
+     * @param question 题目文本
+     * @param answer   正确答案
+     * @param options  候选答案列表
+     */
     private record Challenge(String question, int answer, List<Integer> options) {
     }
 
+    /**
+     * 人机验证回调数据。
+     *
+     * @param userId 用户 ID
+     * @param answer 正确答案
+     * @param choice 用户选择的答案
+     */
     private record VerificationCallback(Long userId, Integer answer, Integer choice) {
     }
 }

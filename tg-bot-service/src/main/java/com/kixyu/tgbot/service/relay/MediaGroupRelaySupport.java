@@ -8,6 +8,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
+/**
+ * 媒体组消息聚合与 flush 判定辅助类。
+ */
 final class MediaGroupRelaySupport {
 
     /**
@@ -36,6 +39,9 @@ final class MediaGroupRelaySupport {
     private MediaGroupRelaySupport() {
     }
 
+    /**
+     * 媒体组 flush 缓冲状态接口。
+     */
     interface FlushBuffer {
         /**
          * 获取用于保护缓冲状态的锁对象。
@@ -116,18 +122,38 @@ final class MediaGroupRelaySupport {
         private int lastCount = 0;
         private int stableCount = 0;
 
+        /**
+         * 创建消息缓冲区。
+         *
+         * @param context 缓冲上下文
+         */
         MessageBuffer(C context) {
             this.context = context;
         }
 
+        /**
+         * 获取缓冲上下文。
+         *
+         * @return 缓冲上下文
+         */
         C context() {
             return context;
         }
 
+        /**
+         * 获取已缓冲的消息列表。
+         *
+         * @return 已缓冲消息列表
+         */
         List<Message> messages() {
             return messages;
         }
 
+        /**
+         * 添加消息到缓冲区并按消息 ID 排序。
+         *
+         * @param message Telegram 消息
+         */
         void add(Message message) {
             synchronized (lock) {
                 messages.add(message);
@@ -139,6 +165,11 @@ final class MediaGroupRelaySupport {
             }
         }
 
+        /**
+         * 获取用于保护缓冲状态的锁对象。
+         *
+         * @return 缓冲锁
+         */
         @Override
         public Object lock() {
             return lock;

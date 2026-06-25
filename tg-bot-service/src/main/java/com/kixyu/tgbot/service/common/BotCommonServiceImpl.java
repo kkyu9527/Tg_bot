@@ -8,6 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.pengrad.telegrambot.model.User;
 
+/**
+ * 机器人通用消息与话题操作服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 class BotCommonServiceImpl implements BotCommonService {

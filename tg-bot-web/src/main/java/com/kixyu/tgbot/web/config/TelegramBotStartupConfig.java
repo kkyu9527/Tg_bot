@@ -13,6 +13,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Telegram 机器人启动初始化配置。
+ */
 @Configuration
 @Slf4j
 class TelegramBotStartupConfig {

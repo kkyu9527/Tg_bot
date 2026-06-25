@@ -4,6 +4,9 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+/**
+ * Telegram 机器人配置属性。
+ */
 @Data
 @Component
 @ConfigurationProperties(prefix = "telegram.bot")

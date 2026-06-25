@@ -15,6 +15,9 @@ import com.pengrad.telegrambot.model.request.InputMediaVideo;
 
 import java.util.Comparator;
 
+/**
+ * Telegram 消息内容类型与媒体组元素映射器。
+ */
 @Component
 class TelegramMessageMediaMapper {
 

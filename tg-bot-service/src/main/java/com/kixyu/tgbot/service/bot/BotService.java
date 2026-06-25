@@ -3,6 +3,9 @@ package com.kixyu.tgbot.service.bot;
 import com.kixyu.tgbot.domain.entity.Message;
 import com.pengrad.telegrambot.model.User;
 
+/**
+ * 机器人消息映射业务服务。
+ */
 public interface BotService {
 
     /**

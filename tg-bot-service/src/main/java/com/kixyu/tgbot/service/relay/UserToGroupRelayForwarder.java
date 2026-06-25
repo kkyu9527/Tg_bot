@@ -33,6 +33,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+/**
+ * 用户私聊消息转发到群话题的处理器。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -54,6 +57,13 @@ class UserToGroupRelayForwarder {
     private final ConcurrentHashMap<String, MediaGroupRelaySupport.MessageBuffer<MediaGroupContext>> mediaGroupBuffers = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, Object> userForwardLocks = new ConcurrentHashMap<>();
 
+    /**
+     * 私聊媒体组缓冲上下文。
+     *
+     * @param privateChatId 私聊聊天 ID
+     * @param groupChatId   群聊 ID
+     * @param mediaGroupId  媒体组 ID
+     */
     private record MediaGroupContext(Long privateChatId, String groupChatId, String mediaGroupId) {
     }
 
@@ -333,6 +343,15 @@ class UserToGroupRelayForwarder {
                 user.id(), topic.getTopicId(), context.mediaGroupId(), sent.length);
     }
 
+    /**
+     * 判断低信任期文本消息是否应被拦截。
+     *
+     * @param user          发送用户
+     * @param topic         用户话题
+     * @param message       私聊消息
+     * @param privateChatId 私聊聊天 ID
+     * @return              需要拦截时返回 true，否则返回 false
+     */
     private boolean shouldBlockLowTrustTextMessage(User user, Topic topic, Message message, Long privateChatId) {
         if (user == null || user.id() == null || topic == null || topic.getTopicId() == null || message == null) {
             return false;
@@ -359,6 +378,16 @@ class UserToGroupRelayForwarder {
                 .orElse(false);
     }
 
+    /**
+     * 判断低信任期消息是否因发送间隔过短而需要拦截。
+     *
+     * @param user                      发送用户
+     * @param topic                     用户话题
+     * @param privateChatId             私聊聊天 ID
+     * @param forwardedUserMessageCount 已转发用户消息数量
+     * @param createTime                上一条消息创建时间
+     * @return                          需要拦截时返回 true，否则返回 false
+     */
     private boolean shouldBlockLowTrustInterval(User user, Topic topic, Long privateChatId, long forwardedUserMessageCount,
                                                 LocalDateTime createTime) {
         if (createTime == null) {
@@ -376,6 +405,12 @@ class UserToGroupRelayForwarder {
         return true;
     }
 
+    /**
+     * 判断文本中是否包含低信任期限制内容。
+     *
+     * @param text 文本内容
+     * @return     包含链接或用户名时返回 true，否则返回 false
+     */
     private boolean containsRestrictedLowTrustText(String text) {
         if (text == null || text.isBlank()) {
             return false;
@@ -383,6 +418,12 @@ class UserToGroupRelayForwarder {
         return LINK_PATTERN.matcher(text).find() || USERNAME_MENTION_PATTERN.matcher(text).find();
     }
 
+    /**
+     * 发送低信任期内容限制提示。
+     *
+     * @param privateChatId 私聊聊天 ID
+     * @param userId        用户 ID
+     */
     private void sendLowTrustRestrictionHint(Long privateChatId, Long userId) {
         if (privateChatId == null) {
             return;
@@ -396,6 +437,13 @@ class UserToGroupRelayForwarder {
         }
     }
 
+    /**
+     * 发送低信任期频率限制提示。
+     *
+     * @param privateChatId  私聊聊天 ID
+     * @param userId         用户 ID
+     * @param remainingMillis 剩余等待时间（毫秒）
+     */
     private void sendLowTrustIntervalHint(Long privateChatId, Long userId, long remainingMillis) {
         if (privateChatId == null) {
             return;

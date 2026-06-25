@@ -2,6 +2,9 @@ package com.kixyu.tgbot.service.webhook;
 
 import com.pengrad.telegrambot.model.Update;
 
+/**
+ * Telegram Webhook 更新处理服务。
+ */
 public interface WebhookService {
 
     /**

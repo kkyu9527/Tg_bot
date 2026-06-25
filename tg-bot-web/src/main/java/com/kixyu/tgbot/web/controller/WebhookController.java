@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import com.pengrad.telegrambot.model.Update;
 
+/**
+ * 接收并处理 Telegram Webhook 请求的控制器。
+ */
 @RestController
 @RequestMapping("/webhook")
 @RequiredArgsConstructor

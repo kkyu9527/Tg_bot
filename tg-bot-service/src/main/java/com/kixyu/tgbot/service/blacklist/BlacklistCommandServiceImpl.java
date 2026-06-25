@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 class BlacklistCommandServiceImpl implements BlacklistCommandService {
 
-    private static final long BLOCKED_LIST_DELETE_DELAY_MILLIS = 30_000L;
+    private static final long BLOCKED_LIST_DELETE_DELAY_MILLIS = 330_000L;
     private static final long ACTION_DEBOUNCE_MILLIS = 5_000L;
 
     private final TelegramBotProperties telegramBotProperties;

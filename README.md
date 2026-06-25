@@ -2,6 +2,8 @@
 
 基于 Spring Boot 的 Telegram 机器人服务，采用分层多模块结构（domain / service / web），通过 Webhook 接收并处理来自 Telegram 的消息。
 
+联系我: [![Telegram](https://img.shields.io/badge/Telegram-26A69A?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/kkyu9527s_bot)
+
 > 部署使用方式非常简单：在你的编排（如 docker-compose、Kubernetes、1Panel 等）里为容器配置好环境变量即可。
 
 ## 项目结构

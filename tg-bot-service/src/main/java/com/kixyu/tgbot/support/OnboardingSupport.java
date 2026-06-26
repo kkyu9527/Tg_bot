@@ -448,7 +448,7 @@ public class OnboardingSupport {
      */
     private void clearWelcomeKeyboard(Long chatId, Integer messageId) {
         try {
-            telegramApiClient.execute(new EditMessageReplyMarkup(chatId, messageId).replyMarkup(null));
+            telegramApiClient.execute(new EditMessageReplyMarkup(chatId, messageId));
         } catch (RuntimeException e) {
             log.debug("清理用户信息卡片按钮失败，chatId={}, messageId={}", chatId, messageId, e);
         }

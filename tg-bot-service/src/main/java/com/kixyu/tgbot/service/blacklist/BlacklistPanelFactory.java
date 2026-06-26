@@ -117,7 +117,7 @@ final class BlacklistPanelFactory {
         if (displayName.length() > 18) {
             displayName = displayName.substring(0, 18) + "...";
         }
-        return displayName + " (" + userId + ")";
+        return userId + " (" + displayName  + ")";
     }
 
     /**

@@ -11,7 +11,14 @@ import java.time.LocalDateTime;
  * 用户在群组中对应的 Telegram 话题实体。
  */
 @Entity
-@Table(name = "topics")
+@Table(
+        name = "topics",
+        indexes = {
+                @Index(name = "idx_topics_topic_id", columnList = "topic_id"),
+                @Index(name = "idx_topics_user_chat", columnList = "user_id, chat_id"),
+                @Index(name = "idx_topics_topic_chat", columnList = "topic_id, chat_id")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor

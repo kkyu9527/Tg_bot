@@ -46,6 +46,14 @@ public interface UserService {
     void markVerified(Long userId, String username, String firstName, String lastName);
 
     /**
+     * 移除用户验证状态，并恢复低信任限制。
+     *
+     * @param userId 用户 ID
+     */
+    void resetVerification(Long userId);
+
+
+    /**
      * 阻塞用户，防止其与机器人进行交互。
      *
      * @param userId    用户 ID

@@ -112,11 +112,11 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         switch (callbackAction.action()) {
             case "block" -> {
                 block(message, chat, callbackAction.userId(), false);
-                answer(callbackQuery, "已拉黑该用户");
+                answer(callbackQuery, "🚫 已拉黑该用户");
             }
             case "unblock" -> {
                 unblock(message, chat, callbackAction.userId(), false);
-                answer(callbackQuery, "已取消拉黑");
+                answer(callbackQuery, "✅ 已取消拉黑");
             }
             case "list_open" -> {
                 sendBlockedListPanel(message, chat, callbackAction.page());
@@ -125,7 +125,7 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
             case "list_page" -> updateBlockedListPanel(callbackQuery, message, chat, callbackAction.page());
             case "list_unblock" -> unblockFromList(callbackQuery, message, chat, callbackAction.userId(), callbackAction.page());
             case "list_close" -> closeBlockedListPanel(callbackQuery, message, chat);
-            default -> answer(callbackQuery, "未知操作");
+            default -> answer(callbackQuery, "❓ 未知操作");
         }
         return true;
     }
@@ -274,7 +274,7 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
      */
     private void unblockFromList(CallbackQuery callbackQuery, Message message, Chat chat, long userId, int requestedPage) {
         if (userId <= 0L) {
-            answer(callbackQuery, "用户 ID 无效");
+            answer(callbackQuery, "⚠️ 用户 ID 无效");
             return;
         }
         if (isDuplicateAction("list_unblock", chat.id(), message.messageThreadId(), userId)) {
@@ -289,7 +289,7 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         List<User> blockedUsers = userService.listBlocked();
         int page = BlacklistPanelFactory.normalizePage(requestedPage, blockedUsers == null ? 0 : blockedUsers.size());
         if (editBlockedListPanel(callbackQuery, chat.id(), message.messageId(), blockedUsers, page)) {
-            answer(callbackQuery, "已取消拉黑");
+            answer(callbackQuery, "✅ 已取消拉黑");
         }
         log.info("已通过黑名单分页面板取消拉黑用户，userId={}, panelMessageId={}", userId, message.messageId());
     }
@@ -308,7 +308,7 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
             answer(callbackQuery, null);
         } catch (RuntimeException e) {
             log.warn("关闭黑名单分页面板失败，chatId={}, messageId={}", chat.id(), message.messageId(), e);
-            answer(callbackQuery, "关闭失败");
+            answer(callbackQuery, "⚠️ 关闭失败");
         }
     }
 
@@ -331,7 +331,7 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
             return true;
         } catch (RuntimeException e) {
             log.warn("更新黑名单分页面板失败，chatId={}, messageId={}, page={}", chatId, messageId, page, e);
-            answer(callbackQuery, "刷新失败");
+            answer(callbackQuery, "⚠️ 刷新失败");
             return false;
         }
     }

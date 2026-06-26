@@ -68,6 +68,7 @@ class OnboardingServiceImpl implements OnboardingService {
             return;
         }
         if (!"start".equals(command)
+                && !"reset_verified".equals(command)
                 && message != null
                 && message.from() != null
                 && chat != null
@@ -96,6 +97,7 @@ class OnboardingServiceImpl implements OnboardingService {
             case "close_topic" -> handleCloseTopicCommand(updateId, message, chat);
             case "delete" -> handleDeleteCommand(updateId, message, chat);
             case "user_config" -> handleUserConfigCommand(updateId, message, chat);
+            case "reset_verified" -> handleResetVerifiedCommand(updateId, message, chat);
             default -> {
             }
         }
@@ -464,6 +466,64 @@ class OnboardingServiceImpl implements OnboardingService {
         if (message.messageId() != null) {
             telegramApiClient.scheduleDelete(chatId, message.messageId(), 0L);
         }
+    }
+
+    /**
+     * 处理 /reset_verified 命令，移除当前话题用户的验证状态并恢复低信任限制。
+     *
+     * @param updateId 更新 ID
+     * @param message  命令消息
+     * @param chat     命令所在聊天
+     */
+    private void handleResetVerifiedCommand(Integer updateId, Message message, Chat chat) {
+        if (message == null || message.from() == null || chat == null || chat.id() == null) {
+            return;
+        }
+        Long ownerId = telegramBotProperties.getOwnerId();
+        if (ownerId == null || !ownerId.equals(message.from().id())) {
+            return;
+        }
+
+        Long targetUserId = resolveResetVerifiedTargetUserId(message);
+        if (targetUserId == null) {
+            sendTemporaryHint(updateId, chat.id(), message.messageThreadId(),
+                    "⚠️ 小提示\n\n请在用户话题里发送 /reset_verified。",
+                    "发送重置验证用法提示失败");
+            if (message.messageId() != null) {
+                telegramApiClient.scheduleDelete(chat.id(), message.messageId(), 0L);
+            }
+            return;
+        }
+
+        userService.resetVerification(targetUserId);
+        sendTemporaryHint(updateId, chat.id(), message.messageThreadId(),
+                "✅ 已移除验证状态并恢复低信任限制：userId = " + targetUserId,
+                "发送重置验证成功提示失败");
+        if (message.messageId() != null) {
+            telegramApiClient.scheduleDelete(chat.id(), message.messageId(), 0L);
+        }
+        log.info("已重置用户验证状态，updateId={}, operatorId={}, targetUserId={}", updateId, message.from().id(), targetUserId);
+    }
+
+    /**
+     * 从当前话题解析 /reset_verified 的目标用户 ID。
+     *
+     * @param message 命令消息
+     * @return        目标用户 ID；无法解析时返回 null
+     */
+    private Long resolveResetVerifiedTargetUserId(Message message) {
+        if (message == null || message.messageThreadId() == null) {
+            return null;
+        }
+        Long groupId = telegramBotProperties.getGroupId();
+        if (groupId == null) {
+            return null;
+        }
+        String groupChatId = String.valueOf(groupId);
+        return topicService.getTopicByTopicId(message.messageThreadId())
+                .filter(topic -> groupChatId.equals(topic.getChatId()))
+                .map(Topic::getUserId)
+                .orElse(null);
     }
 
     /**

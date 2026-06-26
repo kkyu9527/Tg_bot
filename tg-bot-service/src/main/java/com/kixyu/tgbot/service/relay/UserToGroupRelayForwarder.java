@@ -356,7 +356,6 @@ class UserToGroupRelayForwarder {
         if (user == null || user.id() == null || topic == null || topic.getTopicId() == null || message == null) {
             return false;
         }
-
         long forwardedUserMessageCount = messageService.countMessagesByTopicIdAndSenderIdAndMessageType(
                 topic.getTopicId(),
                 user.id(),
@@ -428,7 +427,7 @@ class UserToGroupRelayForwarder {
         if (privateChatId == null) {
             return;
         }
-        String text = "小提示\n\n新用户前 " + BotPolicyConstants.LOW_TRUST_MESSAGE_LIMIT + " 条消息暂时不能包含链接或 @用户名。\n这条消息没有转发给主人。";
+        String text = "💬 小提示\n\n新用户前 " + BotPolicyConstants.LOW_TRUST_MESSAGE_LIMIT + " 条消息暂时不能包含链接或 @用户名。\n这条消息没有转发给主人。";
         try {
             SendResponse response = telegramApiClient.execute(telegramApiClient.createSendMessage(privateChatId, text));
             telegramApiClient.scheduleDeleteIfOk(privateChatId, response);
@@ -449,7 +448,7 @@ class UserToGroupRelayForwarder {
             return;
         }
         long remainingSeconds = Math.max(1L, (long) Math.ceil(remainingMillis / 1000.0));
-        String text = "小提示\n\n新用户前 " + BotPolicyConstants.LOW_TRUST_MESSAGE_LIMIT + " 条消息需要间隔 "
+        String text = "💬 小提示\n\n新用户前 " + BotPolicyConstants.LOW_TRUST_MESSAGE_LIMIT + " 条消息需要间隔 "
                 + BotPolicyConstants.formatDuration(BotPolicyConstants.LOW_TRUST_MESSAGE_INTERVAL)
                 + "。\n请 " + remainingSeconds + " 秒后再发送。";
         try {

@@ -27,7 +27,7 @@ public final class BotPolicyConstants {
     /**
      * Telegram 按钮回调防抖窗口，避免重复点击造成重复执行。
      */
-    public static final Duration BUTTON_CALLBACK_DEBOUNCE_WINDOW = Duration.ofSeconds(5);
+    public static final Duration BUTTON_CALLBACK_DEBOUNCE_WINDOW = Duration.ofSeconds(2);
 
     /**
      * 黑名单管理面板每页展示的用户数量。
@@ -43,6 +43,26 @@ public final class BotPolicyConstants {
      * 低信任期内，两条文本消息之间要求的最小间隔。
      */
     public static final Duration LOW_TRUST_MESSAGE_INTERVAL = Duration.ofSeconds(10);
+
+    /**
+     * 验证按钮允许点击前的最短等待时间。
+     */
+    public static final Duration VERIFICATION_MIN_CLICK_DELAY = Duration.ofSeconds(5);
+
+    /**
+     * 验证题有效期。
+     */
+    public static final Duration VERIFICATION_CHALLENGE_TTL = Duration.ofMinutes(5);
+
+    /**
+     * 验证失败达到上限后的冷却时间。
+     */
+    public static final Duration VERIFICATION_FAILURE_COOLDOWN = Duration.ofMinutes(10);
+
+    /**
+     * 用户连续未通过 /start 验证的最大次数。
+     */
+    public static final int VERIFICATION_MAX_FAILURES = 3;
 
     /**
      * 工具类，禁止实例化。

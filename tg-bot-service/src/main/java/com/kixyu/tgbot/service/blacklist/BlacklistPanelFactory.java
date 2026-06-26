@@ -144,7 +144,7 @@ final class BlacklistPanelFactory {
      */
     private static String buildAutoDeleteHint() {
         String durationText = BotPolicyConstants.formatDuration(BotPolicyConstants.BLOCKED_LIST_AUTO_DELETE_DELAY);
-        return "\n\n提示：这条黑名单管理面板将在 " + durationText + " 后自动删除。";
+        return "\n\n⏱️ 提示：这条黑名单管理面板将在 " + durationText + " 后自动删除。";
     }
 
     /**

@@ -13,7 +13,15 @@ import java.time.LocalDateTime;
  * Telegram 消息映射实体。
  */
 @Entity
-@Table(name = "messages")
+@Table(
+        name = "messages",
+        indexes = {
+                @Index(name = "idx_messages_original_message_id", columnList = "original_message_id"),
+                @Index(name = "idx_messages_forwarded_message_id", columnList = "forwarded_message_id"),
+                @Index(name = "idx_messages_original_sender_type", columnList = "original_message_id, sender_id, message_type"),
+                @Index(name = "idx_messages_topic_sender_type_created", columnList = "topic_id, sender_id, message_type, create_time")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor

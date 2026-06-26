@@ -120,6 +120,31 @@ class UserServiceImpl implements UserService {
     }
 
     /**
+     * 移除用户验证状态
+     *
+     * @param userId 用户 ID
+    */
+    @Override
+    @Transactional
+    public void resetVerification(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        User existing = userRepository.findByUserId(userId).orElse(null);
+        if (existing == null) {
+            User created = User.builder()
+                    .userId(userId)
+                    .blocked(false)
+                    .verified(false)
+                    .build();
+            userRepository.save(created);
+            return;
+        }
+        existing.setVerified(false);
+        userRepository.save(existing);
+    }
+
+    /**
      * 拉黑用户
      *
      * @param userId 用户 ID

@@ -63,13 +63,13 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
             answer(callbackQuery, null);
             return;
         }
-        if (data.startsWith(BLOCK_CALLBACK_PREFIX) && blacklistCommandService.handleIfBlacklistCallback(callbackQuery)) {
-            return;
-        }
         if (data.startsWith(VerificationService.CALLBACK_PREFIX)) {
             if (verificationService.handleVerificationCallback(callbackQuery) && callbackQuery.from() != null) {
                 onboardingService.handleVerifiedStart(callbackQuery.from(), resolvePrivateChatId(callbackQuery));
             }
+            return;
+        }
+        if (data.startsWith(BLOCK_CALLBACK_PREFIX) && blacklistCommandService.handleIfBlacklistCallback(callbackQuery)) {
             return;
         }
         if (data.startsWith(MODE_CALLBACK_PREFIX)) {
@@ -168,7 +168,7 @@ class CallbackQueryServiceImpl implements CallbackQueryService {
         try {
             id = Long.parseLong(parts[2]);
         } catch (NumberFormatException e) {
-            answer(callbackQuery, "无效的话题ID");
+            answer(callbackQuery, "⚠️ 无效的话题 ID");
             return null;
         }
         return new CallbackAction(action, id);

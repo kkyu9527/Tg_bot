@@ -12,7 +12,12 @@ import java.time.LocalDateTime;
  * Telegram 用户实体。
  */
 @Entity
-@Table(name = "users")
+@Table(
+        name = "users",
+        indexes = {
+                @Index(name = "idx_users_blocked", columnList = "blocked")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor

@@ -86,7 +86,7 @@ public class Topic {
 
     /**
      * 根据用户信息生成话题名称。
-     *
+     * <p>
      * 规则：优先使用firstName+lastName，若缺少某个则使用另一个，
      * 如果都没有则使用username，如果还是没有则使用id
      *

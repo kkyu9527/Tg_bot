@@ -13,6 +13,16 @@ import java.util.List;
  */
 final class BlacklistPanelFactory {
 
+    private static final String COMMAND_HELP_TEXT = """
+
+            文本命令：
+            .拉黑：在当前用户话题拉黑该用户
+            .取消拉黑：在当前用户话题取消拉黑
+            .拉黑 用户ID：按用户 ID 拉黑
+            .取消拉黑 用户ID：按用户 ID 取消拉黑
+            .黑名单：查看黑名单成员
+            .退出黑名单：关闭当前黑名单面板""";
+
     /**
      * 工具类，禁止实例化。
      */
@@ -30,14 +40,14 @@ final class BlacklistPanelFactory {
         int total = blockedUsers == null ? 0 : blockedUsers.size();
         if (total == 0) {
             return "✅ 当前没有已拉黑的用户。"
-                    + buildCommandHelpText()
+                    + COMMAND_HELP_TEXT
                     + buildAutoDeleteHint();
         }
 
         int totalPages = totalPages(total);
         return "🧾 黑名单成员\n\n"
                 + "共 " + total + " 人，当前第 " + (page + 1) + " / " + totalPages + " 页。"
-                + buildCommandHelpText()
+                + COMMAND_HELP_TEXT
                 + buildAutoDeleteHint();
     }
 
@@ -118,23 +128,6 @@ final class BlacklistPanelFactory {
             displayName = displayName.substring(0, 18) + "...";
         }
         return userId + " (" + displayName  + ")";
-    }
-
-    /**
-     * 构建黑名单文本命令说明。
-     *
-     * @return 文本命令说明
-     */
-    private static String buildCommandHelpText() {
-        return """
-
-                文本命令：
-                .拉黑：在当前用户话题拉黑该用户
-                .取消拉黑：在当前用户话题取消拉黑
-                .拉黑 用户ID：按用户 ID 拉黑
-                .取消拉黑 用户ID：按用户 ID 取消拉黑
-                .黑名单：查看黑名单成员
-                .退出黑名单：关闭当前黑名单面板""";
     }
 
     /**

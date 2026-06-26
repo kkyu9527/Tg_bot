@@ -56,35 +56,35 @@ tg-bot
 
 ### 私聊命令
 
-| 命令 | 说明 |
-| --- | --- |
-| `/start` | 开始使用机器人；未验证用户会先进入人机验证 |
-| `/info` | 查看当前 Telegram 账号信息 |
+| 命令        | 说明                               |
+|-----------|----------------------------------|
+| `/start` | 开始使用机器人；未验证用户会先进入人机验证           |
+| `/info`  | 查看当前 Telegram 账号信息                |
 | `/delete` | 回复一条已转发/回流的消息后发送，用于撤回两端对应消息 |
 
 ### 群组命令
 
 以下命令需要在配置的目标群组中使用，涉及管理能力的操作只允许 `TELEGRAM_BOT_OWNER_ID` 对应用户执行。
 
-| 命令 | 说明 |
-| --- | --- |
-| `/chatid` | 获取当前群组 ID，方便配置 `TELEGRAM_BOT_GROUP_ID` |
-| `/delete` | 在话题内回复一条已映射消息后发送，撤回两端对应消息 |
-| `/close_topic` | 删除当前用户话题并清理相关映射数据 |
-| `/user_config` | 打开当前话题的用户配置面板，可切换文字模式/全消息模式 |
+| 命令             | 说明                                           |
+|----------------|----------------------------------------------|
+| `/chatid`      | 获取当前群组 ID，方便配置 `TELEGRAM_BOT_GROUP_ID`       |
+| `/delete`      | 在话题内回复一条已映射消息后发送，撤回两端对应消息                 |
+| `/close_topic` | 删除当前用户话题并清理相关映射数据                           |
+| `/user_config` | 打开当前话题的用户配置面板，可切换文字模式/全消息模式                |
 
 ### 黑名单命令
 
 黑名单命令可在配置的目标群组中由主人发送，支持斜杠命令、英文命令和中文文本。
 
-| 命令示例 | 说明 |
-| --- | --- |
-| `/block`、`拉黑` | 在用户话题内拉黑当前话题对应用户 |
-| `/block 用户ID`、`拉黑 用户ID` | 拉黑指定用户 |
-| `/unblock`、`取消拉黑` | 在用户话题内取消拉黑当前话题对应用户 |
-| `/unblock 用户ID`、`取消拉黑 用户ID` | 取消拉黑指定用户 |
-| `/blacklist`、`黑名单`、`查看黑名单` | 打开分页黑名单管理面板 |
-| `/exit_blacklist`、`退出黑名单` | 关闭当前黑名单管理面板 |
+| 命令示例                              | 说明                  |
+|-----------------------------------|---------------------|
+| `/block`、`拉黑`                    | 在用户话题内拉黑当前话题对应用户   |
+| `/block 用户ID`、`拉黑 用户ID`          | 拉黑指定用户              |
+| `/unblock`、`取消拉黑`                | 在用户话题内取消拉黑当前话题对应用户 |
+| `/unblock 用户ID`、`取消拉黑 用户ID`      | 取消拉黑指定用户            |
+| `/blacklist`、`黑名单`、`查看黑名单`       | 打开分页黑名单管理面板         |
+| `/exit_blacklist`、`退出黑名单`         | 关闭当前黑名单管理面板         |
 
 ## 部署前提
 
@@ -98,25 +98,25 @@ tg-bot
 
 ### 必填配置
 
-| 环境变量 | 说明 |
-| --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token |
-| `TELEGRAM_BOT_WEBHOOK_URL` | Telegram Webhook 地址，例如 `https://example.com/webhook` |
-| `TELEGRAM_BOT_OWNER_ID` | 主人的 Telegram 用户 ID |
-| `TELEGRAM_BOT_GROUP_ID` | 用于承载用户话题的 Telegram 群组 ID |
-| `SPRING_DATASOURCE_URL` | MySQL JDBC 地址 |
-| `SPRING_DATASOURCE_USERNAME` | MySQL 用户名 |
-| `SPRING_DATASOURCE_PASSWORD` | MySQL 密码 |
+| 环境变量                         | 说明                                                 |
+|------------------------------|----------------------------------------------------|
+| `TELEGRAM_BOT_TOKEN`         | Telegram Bot Token                                 |
+| `TELEGRAM_BOT_WEBHOOK_URL`   | Telegram Webhook 地址，例如 `https://example.com/webhook` |
+| `TELEGRAM_BOT_OWNER_ID`      | 主人的 Telegram 用户 ID                                  |
+| `TELEGRAM_BOT_GROUP_ID`      | 用于承载用户话题的 Telegram 群组 ID                           |
+| `SPRING_DATASOURCE_URL`      | MySQL JDBC 地址                                      |
+| `SPRING_DATASOURCE_USERNAME` | MySQL 用户名                                          |
+| `SPRING_DATASOURCE_PASSWORD` | MySQL 密码                                           |
 
 ### 常用可选配置
 
-| 环境变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `SPRING_PROFILES_ACTIVE` | `dev` | Spring Profile |
-| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `update` | JPA ddl 策略 |
-| `SPRING_JPA_SHOW_SQL` | `false` | 是否打印 SQL |
-| `DB_USERNAME` | `root` | 本地运行时可作为数据库用户名兜底 |
-| `DB_PASSWORD` | 空 | 本地运行时可作为数据库密码兜底 |
+| 环境变量                            | 默认值      | 说明                |
+|---------------------------------|----------|-------------------|
+| `SPRING_PROFILES_ACTIVE`        | `dev`    | Spring Profile    |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `update` | JPA ddl 策略        |
+| `SPRING_JPA_SHOW_SQL`           | `false`  | 是否打印 SQL          |
+| `DB_USERNAME`                   | `root`   | 本地运行时可作为数据库用户名兜底 |
+| `DB_PASSWORD`                   | 空        | 本地运行时可作为数据库密码兜底  |
 
 ## 本地构建与运行
 

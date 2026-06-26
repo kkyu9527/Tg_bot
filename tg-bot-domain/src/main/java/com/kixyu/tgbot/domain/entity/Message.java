@@ -36,7 +36,7 @@ public class Message {
     @Column(name = "topic_id", nullable = false)
     private Long topicId;
 
-    // 消息类型（用户消息/机器人转发消息/主人回复消息）
+    // 消息类型（用户消息/主人回复消息）
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "message_type", nullable = false, length = 32)
@@ -106,7 +106,6 @@ public class Message {
      */
     public enum MessageType {
         USER_MESSAGE,           // 用户原始消息
-        BOT_FORWARDED_MESSAGE,  // 机器人转发的消息
         OWNER_MESSAGE           // 主人在话题中的回复
     }
 

@@ -38,12 +38,19 @@ class TelegramBotStartupConfig {
             }
 
             try {
-                BaseResponse response = telegramApiClient.execute(new SetWebhook().url(webhookUrl));
+                String webhookSecret = normalizeSecret(telegramBotProperties.getWebhookSecret());
+                SetWebhook request = new SetWebhook().url(webhookUrl);
+                if (webhookSecret != null) {
+                    request.secretToken(webhookSecret);
+                }
+
+                BaseResponse response = telegramApiClient.execute(request);
                 if (response != null && response.isOk()) {
-                    log.info("setWebhook 成功，webhookUrl={}", webhookUrl);
+                    log.info("setWebhook 成功，webhookUrl={}, webhookSecretEnabled={}", webhookUrl, webhookSecret != null);
                 } else {
-                    log.warn("setWebhook 失败，webhookUrl={}, errorCode={}, description={}",
+                    log.warn("setWebhook 失败，webhookUrl={}, webhookSecretEnabled={}, errorCode={}, description={}",
                             webhookUrl,
+                            webhookSecret != null,
                             response == null ? null : response.errorCode(),
                             response == null ? null : response.description());
                 }
@@ -121,5 +128,19 @@ class TelegramBotStartupConfig {
             break;
         }
         return value;
+    }
+
+    /**
+     * 标准化 Webhook 密钥配置。
+     *
+     * @param raw   原始 Webhook 密钥
+     * @return      标准化后的 Webhook 密钥；未配置时返回 null
+     */
+    private static String normalizeSecret(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        return value.isEmpty() ? null : value;
     }
 }

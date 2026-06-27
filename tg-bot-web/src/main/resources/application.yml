@@ -40,3 +40,4 @@ telegram:
     owner-id: ${TELEGRAM_BOT_OWNER_ID:0}
     group-id: ${TELEGRAM_BOT_GROUP_ID:0}
     webhook-url: ${TELEGRAM_BOT_WEBHOOK_URL:}
+    webhook-secret: ${TELEGRAM_BOT_WEBHOOK_SECRET:}

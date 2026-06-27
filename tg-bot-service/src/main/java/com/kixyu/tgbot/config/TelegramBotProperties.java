@@ -31,4 +31,9 @@ public class TelegramBotProperties {
      * Telegram Webhook 回调地址。
      */
     private String webhookUrl;
+
+    /**
+     * Telegram Webhook 请求密钥，用于校验请求确实由 Telegram 推送。
+     */
+    private String webhookSecret;
 }

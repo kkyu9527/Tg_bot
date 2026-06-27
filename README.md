@@ -117,6 +117,7 @@ tg-bot
 | `SPRING_JPA_SHOW_SQL`           | `false`  | 是否打印 SQL          |
 | `DB_USERNAME`                   | `root`   | 本地运行时可作为数据库用户名兜底 |
 | `DB_PASSWORD`                   | 空        | 本地运行时可作为数据库密码兜底  |
+| `TELEGRAM_BOT_WEBHOOK_SECRET`   | 空        | Webhook 请求密钥，配置后会校验 Telegram 请求头 |
 
 ## 本地构建与运行
 
@@ -148,6 +149,7 @@ export TELEGRAM_BOT_TOKEN='your_bot_token'
 export TELEGRAM_BOT_OWNER_ID='your_telegram_user_id'
 export TELEGRAM_BOT_GROUP_ID='your_forum_group_id'
 export TELEGRAM_BOT_WEBHOOK_URL='https://your-domain.com/webhook'
+export TELEGRAM_BOT_WEBHOOK_SECRET='your_random_webhook_secret'
 ```
 
 ## Docker 运行
@@ -179,6 +181,7 @@ services:
       TELEGRAM_BOT_OWNER_ID: "<你的 Telegram 用户 ID>"
       TELEGRAM_BOT_GROUP_ID: "<论坛群组 ID>"
       TELEGRAM_BOT_WEBHOOK_URL: "https://your-domain.com/webhook"
+      TELEGRAM_BOT_WEBHOOK_SECRET: "<随机 Webhook 密钥>"
     ports:
       - "9599:9599"
 ```

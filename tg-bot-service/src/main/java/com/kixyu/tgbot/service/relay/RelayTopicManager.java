@@ -81,14 +81,14 @@ class RelayTopicManager {
 
         try {
             String caption = onboardingSupport.buildTopicCaption(topic);
-            Message sentMessage = onboardingSupport.sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
+            Message sentMessage = onboardingSupport.sendUserCardToTopic(groupChatId, threadId, user, caption);
             if (sentMessage != null && sentMessage.messageId() != null) {
                 topic.setWelcomeMessageId(sentMessage.messageId().longValue());
                 topicService.saveTopic(topic);
                 onboardingSupport.pinMessage(groupChatId, sentMessage.messageId());
             }
         } catch (RuntimeException e) {
-            log.warn("发送新用户提示消息失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId, e);
+            log.warn("发送用户信息卡片失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId, e);
         }
 
         return topic;

@@ -7,14 +7,11 @@ import com.kixyu.tgbot.domain.entity.User;
 import com.kixyu.tgbot.service.topic.TopicService;
 import com.kixyu.tgbot.service.user.UserService;
 import com.kixyu.tgbot.support.OnboardingSupport;
-import com.kixyu.tgbot.support.UserConfigKeyboardFactory;
 import com.kixyu.tgbot.telegram.TelegramApiClient;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.DeleteMessage;
-import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
 import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
@@ -39,7 +36,6 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
     private final UserService userService;
     private final TopicService topicService;
     private final OnboardingSupport onboardingSupport;
-    private final UserConfigKeyboardFactory userConfigKeyboardFactory;
     private final Map<String, Integer> lastListMessageIds = new ConcurrentHashMap<>();
     private final Map<String, Long> recentActionTimes = new ConcurrentHashMap<>();
 
@@ -160,7 +156,6 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         Topic refreshedTopic = topic == null ? findTopicByUserId(targetUserId) : topic;
         onboardingSupport.syncBlockedTopicName(refreshedTopic, true);
         onboardingSupport.refreshWelcomeMessage(refreshedTopic);
-        refreshOperationPanelKeyboard(chat.id(), message, refreshedTopic, deleteSourceMessage);
         sendHint(chat.id(), message.messageThreadId(), "已拉黑用户：" + targetUserId);
         deleteSourceMessage(chat.id(), message, deleteSourceMessage);
         log.info("已通过黑名单入口拉黑用户，userId={}, sourceMessageId={}", targetUserId, message.messageId());
@@ -196,7 +191,6 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
         Topic refreshedTopic = topic == null ? findTopicByUserId(targetUserId) : topic;
         onboardingSupport.syncBlockedTopicName(refreshedTopic, false);
         onboardingSupport.refreshWelcomeMessage(refreshedTopic);
-        refreshOperationPanelKeyboard(chat.id(), message, refreshedTopic, deleteSourceMessage);
         sendHint(chat.id(), message.messageThreadId(), "已取消拉黑用户：" + targetUserId);
         deleteSourceMessage(chat.id(), message, deleteSourceMessage);
         log.info("已通过黑名单入口取消拉黑用户，userId={}, sourceMessageId={}", targetUserId, message.messageId());
@@ -395,30 +389,6 @@ class BlacklistCommandServiceImpl implements BlacklistCommandService {
             return null;
         }
         return topicService.getTopicByUserIdAndChatId(userId, String.valueOf(groupId)).orElse(null);
-    }
-
-    /**
-     * 刷新临时用户配置面板上的按钮状态。
-     *
-     * @param chatId              聊天 ID
-     * @param message             当前消息
-     * @param topic               话题实体
-     * @param deleteSourceMessage 是否删除触发消息
-     */
-    private void refreshOperationPanelKeyboard(Long chatId, Message message, Topic topic, boolean deleteSourceMessage) {
-        if (deleteSourceMessage || chatId == null || message == null || message.messageId() == null || topic == null) {
-            return;
-        }
-        Long welcomeMessageId = topic.getWelcomeMessageId();
-        if (welcomeMessageId != null && welcomeMessageId.equals(message.messageId().longValue())) {
-            return;
-        }
-        try {
-            InlineKeyboardMarkup markup = userConfigKeyboardFactory.buildForTopic(topic);
-            telegramApiClient.execute(new EditMessageReplyMarkup(chatId, message.messageId()).replyMarkup(markup));
-        } catch (RuntimeException e) {
-            log.warn("刷新用户配置面板按钮状态失败，chatId={}, topicId={}, messageId={}", chatId, topic.getTopicId(), message.messageId(), e);
-        }
     }
 
     /**

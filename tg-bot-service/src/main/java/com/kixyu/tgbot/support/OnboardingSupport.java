@@ -13,7 +13,6 @@ import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.UserProfilePhotos;
 import com.pengrad.telegrambot.request.CreateForumTopic;
 import com.pengrad.telegrambot.request.EditMessageCaption;
-import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
 import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.EditForumTopic;
 import com.pengrad.telegrambot.request.GetFile;
@@ -179,7 +178,7 @@ public class OnboardingSupport {
     }
 
     /**
-     * 重建用户话题并更新本地映射，同时在新话题中发送提示消息并尝试置顶。
+     * 重建用户话题并更新本地映射，同时在新话题中发送用户信息卡片并尝试置顶。
      *
      * @param user        用户
      * @param groupChatId 群聊 ID 字符串
@@ -205,7 +204,7 @@ public class OnboardingSupport {
         );
 
         String caption = buildTopicCaption(createdTopic);
-        Message sentMessage = sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
+        Message sentMessage = sendUserCardToTopic(groupChatId, threadId, user, caption);
         if (sentMessage != null && sentMessage.messageId() != null) {
             topicService.getTopicByTopicId(threadId).ifPresent(topic -> {
                 topic.setWelcomeMessageId(sentMessage.messageId().longValue());
@@ -231,13 +230,12 @@ public class OnboardingSupport {
 
         Long welcomeMessageId = topic.getWelcomeMessageId();
         if (welcomeMessageId != null && welcomeMessageId <= Integer.MAX_VALUE) {
-            refreshWelcomeMessage(topic);
             pinMessage(groupChatId, welcomeMessageId.intValue());
             return;
         }
 
         String caption = buildTopicCaption(topic);
-        Message sentMessage = sendNewUserMessageToTopic(groupChatId, topic.getTopicId(), user, caption);
+        Message sentMessage = sendUserCardToTopic(groupChatId, topic.getTopicId(), user, caption);
         if (sentMessage == null || sentMessage.messageId() == null) {
             log.warn("补发用户信息卡片失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, topic.getTopicId());
             return;
@@ -279,7 +277,7 @@ public class OnboardingSupport {
     }
 
     /**
-     * 向新用户对应的话题发送提示消息，优先发送带头像的图片消息。
+     * 向用户对应的话题发送用户信息卡片，优先发送带头像的图片消息。
      *
      * @param groupChatId     群聊 ID 字符串
      * @param messageThreadId 话题 threadId
@@ -287,7 +285,7 @@ public class OnboardingSupport {
      * @param caption         消息文案
      * @return Telegram 返回的消息对象，可为空
      */
-    public Message sendNewUserMessageToTopic(String groupChatId, Long messageThreadId, User user, String caption) {
+    public Message sendUserCardToTopic(String groupChatId, Long messageThreadId, User user, String caption) {
         Long groupChatIdLong = parseChatIdLong(groupChatId);
         if (groupChatIdLong == null) {
             return null;
@@ -346,7 +344,7 @@ public class OnboardingSupport {
     }
 
     /**
-     * 刷新置顶用户信息卡片内容，并清理旧的 inline 按钮。
+     * 刷新置顶用户信息卡片内容。
      *
      * @param topic 话题实体
      */
@@ -364,7 +362,6 @@ public class OnboardingSupport {
         if (!updated) {
             updated = tryEditWelcomeText(chatId, messageId, text);
         }
-        clearWelcomeKeyboard(chatId, messageId);
         if (!updated) {
             log.warn("刷新用户信息卡片内容失败，chatId={}, messageId={}, topicId={}", chatId, messageId, topic.getTopicId());
         }
@@ -437,20 +434,6 @@ public class OnboardingSupport {
             return response != null && (response.isOk() || TelegramApiErrorUtil.looksLikeNotModified(response));
         } catch (RuntimeException e) {
             return false;
-        }
-    }
-
-    /**
-     * 清理用户信息卡片上历史遗留的 inline 按钮。
-     *
-     * @param chatId    聊天 ID
-     * @param messageId 消息 ID
-     */
-    private void clearWelcomeKeyboard(Long chatId, Integer messageId) {
-        try {
-            telegramApiClient.execute(new EditMessageReplyMarkup(chatId, messageId));
-        } catch (RuntimeException e) {
-            log.debug("清理用户信息卡片按钮失败，chatId={}, messageId={}", chatId, messageId, e);
         }
     }
 

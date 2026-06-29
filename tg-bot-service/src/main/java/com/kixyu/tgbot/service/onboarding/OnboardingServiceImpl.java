@@ -189,9 +189,9 @@ class OnboardingServiceImpl implements OnboardingService {
 
             String caption = onboardingSupport.buildTopicCaption(createdTopic);
 
-            Message sentMessage = onboardingSupport.sendNewUserMessageToTopic(groupChatId, threadId, user, caption);
+            Message sentMessage = onboardingSupport.sendUserCardToTopic(groupChatId, threadId, user, caption);
             if (sentMessage == null || sentMessage.messageId() == null) {
-                log.warn("发送新用户提示消息失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId);
+                log.warn("发送用户信息卡片失败，userId={}, groupChatId={}, threadId={}", user.id(), groupChatId, threadId);
                 return;
             }
             topicService.getTopicByUserIdAndChatId(user.id(), groupChatId)
@@ -199,10 +199,10 @@ class OnboardingServiceImpl implements OnboardingService {
                         topic.setWelcomeMessageId(sentMessage.messageId().longValue());
                         topicService.saveTopic(topic);
                     });
-            log.info("已发送新用户提示消息，userId={}, groupChatId={}, threadId={}, messageId={}",
+            log.info("已发送用户信息卡片，userId={}, groupChatId={}, threadId={}, messageId={}",
                     user.id(), groupChatId, threadId, sentMessage.messageId());
             onboardingSupport.pinMessage(groupChatId, sentMessage.messageId());
-            log.info("已尝试置顶新用户提示消息，userId={}, groupChatId={}, threadId={}, messageId={}",
+            log.info("已尝试置顶用户信息卡片，userId={}, groupChatId={}, threadId={}, messageId={}",
                     user.id(), groupChatId, threadId, sentMessage.messageId());
         } catch (RuntimeException e) {
             log.error("处理 /start 失败，userId={}, privateChatId={}", user == null ? null : user.id(), privateChatId, e);

@@ -32,6 +32,7 @@ logging:
     org.springframework.orm.jpa: WARN
     org.hibernate.SQL: OFF
     org.hibernate.orm.jdbc.bind: OFF
+    org.apache.coyote.http11.Http11Processor: WARN
 
 # Telegram Bot 配置
 telegram:

@@ -97,7 +97,7 @@ class GroupToUserRelayForwarder {
 
         Long userId = relayReplyResolver.resolveTargetUserId(groupMessage, threadId, String.valueOf(groupId));
         if (userId == null) {
-            log.warn("无法解析目标用户，跳过回流，threadId={}, messageId={}", threadId, groupMessage.messageId());
+            log.info("非托管话题或缺少用户映射，跳过回流，threadId={}, messageId={}", threadId, groupMessage.messageId());
             return;
         }
 
